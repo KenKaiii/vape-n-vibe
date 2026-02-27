@@ -45,8 +45,8 @@ jobs:
           mkdir -p ~/.private_keys
           echo "$APPLE_API_KEY" | base64 --decode > ~/.private_keys/AuthKey_N3Z8QG6Z9Q.p8
 
-      - name: Build macOS DMG (arm64)
-        run: npx electron-builder --mac --arm64 --publish never
+      - name: Build macOS DMG + ZIP (arm64)
+        run: npx electron-builder --mac --arm64 --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_API_KEY: ~/.private_keys/AuthKey_N3Z8QG6Z9Q.p8
@@ -57,7 +57,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mac-arm64
-          path: release/*.dmg
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.yml
           if-no-files-found: error
 
   build-win:
@@ -74,7 +77,7 @@ jobs:
         run: npm ci
 
       - name: Build Windows NSIS installer
-        run: npx electron-builder --win --x64 --publish never
+        run: npx electron-builder --win --x64 --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -82,30 +85,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: win-x64
-          path: release/*.exe
+          path: |
+            release/*.exe
+            release/*.yml
           if-no-files-found: error
-
-  publish:
-    needs: [build-mac, build-win]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: List artifacts
-        run: find artifacts -type f | head -20
-
-      - name: Create draft GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          generate_release_notes: true
-          files: |
-            artifacts/**/*.dmg
-            artifacts/**/*.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

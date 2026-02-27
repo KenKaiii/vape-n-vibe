@@ -1,5 +1,5 @@
 const { uIOhook, UiohookKey } = require("uiohook-napi");
-const { systemPreferences, shell } = require("electron");
+const { systemPreferences, shell, globalShortcut } = require("electron");
 const { getNativeAddonPath } = require("../config/paths");
 
 // --- Native fn key monitor (macOS only) ---
@@ -68,6 +68,63 @@ let parsed = null;
 let active = false;
 let uiohookStarted = false;
 let fnMonitorStarted = false;
+let registeredAccelerator = null;
+
+// --- globalShortcut suppression ---
+// Registers the hotkey combo via Electron's globalShortcut so the OS
+// consumes the key event and it never reaches the focused app (prevents
+// Ctrl+Space from typing spaces, Ctrl+A from selecting all, etc.).
+// uiohook's low-level hook still sees the events for push-to-talk.
+function toAccelerator(hotkeyStr) {
+  if (hotkeyStr === "fn") return null;
+  const parts = hotkeyStr.split("+");
+  const mods = [];
+  const keys = [];
+
+  for (const p of parts) {
+    if (p === "Ctrl") mods.push("Control");
+    else if (p === "Cmd") mods.push("Command");
+    else if (p === "Win") mods.push("Super");
+    else if (p === "Alt") mods.push("Alt");
+    else if (p === "Shift") mods.push("Shift");
+    else keys.push(p);
+  }
+
+  // Electron accelerators require at least one non-modifier key
+  if (keys.length === 0) return null;
+  return [...mods, ...keys].join("+");
+}
+
+function registerSuppression(hotkeyStr) {
+  unregisterSuppression();
+  const accel = toAccelerator(hotkeyStr);
+  if (!accel) return;
+
+  try {
+    const ok = globalShortcut.register(accel, () => {
+      // No-op — suppression only. uiohook handles actual key events.
+    });
+    if (ok) {
+      registeredAccelerator = accel;
+      console.log("[hotkey] Suppression registered:", accel);
+    } else {
+      console.warn("[hotkey] Could not register suppression for:", accel);
+    }
+  } catch (err) {
+    console.warn("[hotkey] Suppression registration error:", err.message);
+  }
+}
+
+function unregisterSuppression() {
+  if (registeredAccelerator) {
+    try {
+      globalShortcut.unregister(registeredAccelerator);
+    } catch {
+      // ignore — app may be quitting
+    }
+    registeredAccelerator = null;
+  }
+}
 
 function parseHotkey(hotkey) {
   if (hotkey === "fn") return { type: "fn" };
@@ -195,6 +252,7 @@ function registerHotkey(hotkey, cbs) {
   console.log("[hotkey] Registering:", hotkey, "→", parsed.type);
 
   if (parsed.type === "fn") {
+    unregisterSuppression();
     if (process.platform !== "darwin") {
       console.warn(
         "[hotkey] fn key is not available on this platform — falling back to uiohook",
@@ -207,6 +265,7 @@ function registerHotkey(hotkey, cbs) {
     }
   } else {
     stopFnMonitor();
+    registerSuppression(hotkey);
     startUiohook();
   }
 }
@@ -217,6 +276,7 @@ function updateHotkey(hotkey) {
   console.log("[hotkey] Updated:", hotkey, "→", parsed.type);
 
   if (parsed.type === "fn") {
+    unregisterSuppression();
     if (process.platform !== "darwin") {
       console.warn(
         "[hotkey] fn key is not available on this platform — using uiohook",
@@ -228,11 +288,13 @@ function updateHotkey(hotkey) {
     }
   } else {
     stopFnMonitor();
+    registerSuppression(hotkey);
     if (!uiohookStarted) startUiohook();
   }
 }
 
 function stopHotkey() {
+  unregisterSuppression();
   stopFnMonitor();
   if (uiohookStarted) {
     uIOhook.stop();

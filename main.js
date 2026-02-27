@@ -23,6 +23,12 @@ const {
   requestAccessibility,
 } = require("./src/main/hotkey");
 const { muteSystem, unmuteSystem } = require("./src/main/audio-control");
+const {
+  initUpdater,
+  checkForUpdates,
+  downloadUpdate,
+  installUpdate,
+} = require("./src/main/updater");
 
 // --- Global error handlers ---
 process.on("unhandledRejection", (reason) => {
@@ -84,6 +90,7 @@ app.whenReady().then(() => {
       accessibilityGranted: checkAccessibility(),
       platform: process.platform,
       language: store.get("language"),
+      version: app.getVersion(),
     };
   });
 
@@ -143,6 +150,24 @@ app.whenReady().then(() => {
     return checkAccessibility();
   });
 
+  ipcMain.handle("check-for-updates", (event) => {
+    if (!validateSender(event.senderFrame)) return false;
+    checkForUpdates();
+    return true;
+  });
+
+  ipcMain.handle("download-update", (event) => {
+    if (!validateSender(event.senderFrame)) return false;
+    downloadUpdate();
+    return true;
+  });
+
+  ipcMain.handle("install-update", (event) => {
+    if (!validateSender(event.senderFrame)) return false;
+    installUpdate();
+    return true;
+  });
+
   // Forward frequency data from renderer to overlay
   ipcMain.on("viz-freq", (event, data) => {
     if (!validateSender(event.senderFrame)) return;
@@ -192,6 +217,7 @@ app.whenReady().then(() => {
 
   mainWindow = createWindow();
   overlayWindow = createOverlay();
+  initUpdater(mainWindow);
 
   // Auto-init LLM if cleanup is enabled and model exists
   if (store.get("cleanupEnabled") && fs.existsSync(defaults.llm.path)) {

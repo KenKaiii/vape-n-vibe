@@ -36,4 +36,12 @@ contextBridge.exposeInMainWorld("vapenvibe", {
   requestAccessibility: () => ipcRenderer.invoke("request-accessibility"),
   checkAccessibility: () => ipcRenderer.invoke("check-accessibility"),
   sendVizFreq: (data) => ipcRenderer.send("viz-freq", data),
+  checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
+  downloadUpdate: () => ipcRenderer.invoke("download-update"),
+  installUpdate: () => ipcRenderer.invoke("install-update"),
+  onUpdateStatus: (cb) => {
+    const handler = (_e, data) => cb(data);
+    ipcRenderer.on("update-status", handler);
+    return () => ipcRenderer.removeListener("update-status", handler);
+  },
 });

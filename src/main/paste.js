@@ -13,10 +13,16 @@ async function simulatePaste() {
       'tell application "System Events" to keystroke "v" using command down',
     ]);
   } else if (platform === "win32") {
-    await execFileAsync("powershell", [
-      "-command",
-      "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')",
-    ]);
+    await execFileAsync(
+      "powershell",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("^v")',
+      ],
+      { windowsHide: true },
+    );
   } else {
     await execFileAsync("xdotool", ["key", "ctrl+v"]);
   }

@@ -318,3 +318,44 @@ footer {
 .access-status.granted {
   color: #4cd964;
 }
+
+.version-badge {
+  font-size: 9px;
+  color: #555;
+  margin-left: 8px;
+  letter-spacing: 0.3px;
+}
+
+.footer-right {
+  display: flex;
+  align-items: center;
+}
+
+.update-btn {
+  background: none;
+  border: 1px solid #555;
+  color: #fff;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.update-btn:hover {
+  border-color: #888;
+}
+
+.update-btn.highlight {
+  border-color: #4cd964;
+  color: #4cd964;
+}
+
+.update-btn.highlight:hover {
+  border-color: #5de075;
+  color: #5de075;
+}
+
+.update-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

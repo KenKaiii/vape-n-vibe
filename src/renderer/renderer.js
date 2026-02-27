@@ -14,6 +14,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   const cleanupToggle = document.getElementById("cleanup-toggle");
   const micSelect = document.getElementById("mic-select");
   const langSelect = document.getElementById("lang-select");
+  const updateBtn = document.getElementById("update-btn");
+  const versionBadge = document.getElementById("version-badge");
 
   // --- Language selector ---
   langSelect.value = config.language;
@@ -23,6 +25,75 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // --- Hotkey display ---
   shortcutEl.textContent = displayHotkey(config.hotkey);
+
+  // --- Version badge ---
+  versionBadge.textContent = `v${config.version}`;
+
+  // --- Update button state machine ---
+  let updateState = "idle";
+  let revertTimer = null;
+
+  function setUpdateState(state, version) {
+    updateState = state;
+    if (revertTimer) {
+      clearTimeout(revertTimer);
+      revertTimer = null;
+    }
+    updateBtn.classList.remove("highlight");
+    updateBtn.disabled = false;
+
+    switch (state) {
+      case "idle":
+        updateBtn.textContent = "Check for updates";
+        break;
+      case "checking":
+        updateBtn.textContent = "Checking\u2026";
+        updateBtn.disabled = true;
+        break;
+      case "available":
+        updateBtn.textContent = `Download v${version}`;
+        updateBtn.classList.add("highlight");
+        break;
+      case "up-to-date":
+        updateBtn.textContent = "Up to date";
+        updateBtn.disabled = true;
+        revertTimer = setTimeout(() => setUpdateState("idle"), 5000);
+        break;
+      case "downloading":
+        updateBtn.textContent = `Downloading\u2026 ${version}%`;
+        updateBtn.disabled = true;
+        break;
+      case "downloaded":
+        updateBtn.textContent = "Restart to update";
+        updateBtn.classList.add("highlight");
+        break;
+      case "error":
+        updateBtn.textContent = "Update failed";
+        updateBtn.disabled = true;
+        revertTimer = setTimeout(() => setUpdateState("idle"), 5000);
+        break;
+    }
+  }
+
+  updateBtn.addEventListener("click", () => {
+    if (updateState === "idle") {
+      window.vapenvibe.checkForUpdates();
+    } else if (updateState === "available") {
+      window.vapenvibe.downloadUpdate();
+    } else if (updateState === "downloaded") {
+      window.vapenvibe.installUpdate();
+    }
+  });
+
+  window.vapenvibe.onUpdateStatus((data) => {
+    if (data.state === "available") {
+      setUpdateState("available", data.version);
+    } else if (data.state === "downloading") {
+      setUpdateState("downloading", data.percent);
+    } else {
+      setUpdateState(data.state);
+    }
+  });
 
   // --- Cleanup toggle state ---
   let cleanupEnabled = config.cleanupEnabled;
