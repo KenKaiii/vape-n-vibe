@@ -63,6 +63,8 @@ if (process.platform === "darwin") {
 }
 
 app.whenReady().then(() => {
+  defaults.resolveModelPaths();
+
   ipcMain.handle("get-config", (event) => {
     if (!validateSender(event.senderFrame)) return null;
     return {

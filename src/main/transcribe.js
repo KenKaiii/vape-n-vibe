@@ -1,17 +1,8 @@
-const path = require("node:path");
 const { execFile } = require("node:child_process");
 const defaults = require("../config/defaults");
+const { getWhisperBinaryPath } = require("../config/paths");
 
-const WHISPER_CPP = path.join(
-  __dirname,
-  "..",
-  "..",
-  "node_modules",
-  "whisper-node",
-  "lib",
-  "whisper.cpp",
-  process.platform === "win32" ? "main.exe" : "main",
-);
+const WHISPER_CPP = getWhisperBinaryPath();
 
 function transcribe(wavPath) {
   return new Promise((resolve, reject) => {

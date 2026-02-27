@@ -1,13 +1,11 @@
-const path = require("node:path");
 const { uIOhook, UiohookKey } = require("uiohook-napi");
 const { systemPreferences, shell } = require("electron");
+const { getNativeAddonPath } = require("../config/paths");
 
 // --- Native fn key monitor (macOS only) ---
 let fnMonitor = null;
 try {
-  fnMonitor = require(
-    path.join(__dirname, "..", "..", "build", "Release", "fn_key_monitor.node"),
-  );
+  fnMonitor = require(getNativeAddonPath());
 } catch {
   console.log("[hotkey] Native fn_key_monitor not available");
 }

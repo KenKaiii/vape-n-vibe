@@ -41,15 +41,19 @@ const defaults = {
     url: "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf",
   },
 
-  // Paths (resolved at runtime)
+  // Paths — resolved lazily via resolveModelPaths() after app.whenReady()
   paths: {
-    models: path.join(__dirname, "..", "..", "models"),
+    models: null,
     tmp: require("node:os").tmpdir(),
   },
-};
 
-// Resolved model path
-defaults.model.path = path.join(defaults.paths.models, defaults.model.file);
-defaults.llm.path = path.join(defaults.paths.models, defaults.llm.file);
+  // Call once inside app.whenReady() before accessing model paths
+  resolveModelPaths() {
+    const { getModelsDir } = require("./paths");
+    defaults.paths.models = getModelsDir();
+    defaults.model.path = path.join(defaults.paths.models, defaults.model.file);
+    defaults.llm.path = path.join(defaults.paths.models, defaults.llm.file);
+  },
+};
 
 module.exports = defaults;
