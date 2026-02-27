@@ -3,7 +3,6 @@ dist/
 out/
 release/
 build/
-!build/entitlements.mac.plist
 .DS_Store
 models/*.bin
 models/*.gguf
