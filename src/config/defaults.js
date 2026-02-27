@@ -36,9 +36,9 @@ const defaults = {
 
   // LLM (text cleanup)
   llm: {
-    name: "Qwen3-0.6B-Q4_K_M",
-    file: "Qwen3-0.6B-Q4_K_M.gguf",
-    url: "https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf",
+    name: "gemma-3-1b-it-Q4_K_M",
+    file: "gemma-3-1b-it-Q4_K_M.gguf",
+    url: "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf",
   },
 
   // Paths (resolved at runtime)

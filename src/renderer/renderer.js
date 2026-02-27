@@ -74,6 +74,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   // --- Audio recording (push-to-talk) ---
   let audioContext = null;
   let processor = null;
+  let analyser = null;
+  let freqData = null;
+  let vizInterval = null;
   let stream = null;
   let audioChunks = [];
   let isRecording = false;
@@ -90,8 +93,22 @@ window.addEventListener("DOMContentLoaded", async () => {
       audio: { deviceId, channelCount: 1, sampleRate: 16000 },
     });
     const source = audioContext.createMediaStreamSource(stream);
-    processor = audioContext.createScriptProcessor(4096, 1, 1);
 
+    // Set up analyser for overlay visualizer
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    source.connect(analyser);
+
+    // Stream frequency data to overlay at ~30fps
+    vizInterval = setInterval(() => {
+      if (analyser && freqData) {
+        analyser.getByteFrequencyData(freqData);
+        window.vapenvibe.sendVizFreq(Array.from(freqData));
+      }
+    }, 33);
+
+    processor = audioContext.createScriptProcessor(4096, 1, 1);
     processor.onaudioprocess = (e) => {
       if (isRecording) {
         audioChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
@@ -107,8 +124,15 @@ window.addEventListener("DOMContentLoaded", async () => {
     isRecording = false;
     shortcutEl.classList.remove("recording");
 
+    if (vizInterval) {
+      clearInterval(vizInterval);
+      vizInterval = null;
+    }
+
     if (processor) processor.disconnect();
     if (stream) stream.getTracks().forEach((t) => t.stop());
+    analyser = null;
+    freqData = null;
     if (audioContext) await audioContext.close();
 
     if (audioChunks.length === 0) return;

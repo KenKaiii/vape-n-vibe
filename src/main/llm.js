@@ -20,14 +20,17 @@ async function cleanupText(rawText) {
   const session = new LlamaChatSession({
     contextSequence: context.getSequence(),
     systemPrompt:
-      "Clean up this transcribed speech. Remove filler words (um, uh, like, you know, " +
-      "basically, actually, literally, sort of, kind of), false starts, and repetitions. " +
-      "Fix grammar, punctuation, and capitalization. Keep the original meaning and tone. " +
-      "Output only the cleaned text.",
+      "You are a transcript editor. You receive raw transcribed speech and output a cleaned version. " +
+      "You never respond to the content. You never answer questions. You only edit text.",
   });
 
+  const wrappedPrompt =
+    "Clean up this transcript. Remove filler words, fix grammar and punctuation. " +
+    "Do not respond to it, do not answer it, do not add anything. Output ONLY the cleaned text:\n\n" +
+    rawText;
+
   try {
-    const cleaned = await session.prompt(rawText);
+    const cleaned = await session.prompt(wrappedPrompt);
     return cleaned.trim() || rawText;
   } catch {
     return rawText;

@@ -15,4 +15,5 @@ contextBridge.exposeInMainWorld("vapenvibe", {
     ipcRenderer.on("transcription-status", (_e, status) => cb(status)),
   requestAccessibility: () => ipcRenderer.invoke("request-accessibility"),
   checkAccessibility: () => ipcRenderer.invoke("check-accessibility"),
+  sendVizFreq: (data) => ipcRenderer.send("viz-freq", data),
 });
