@@ -1,4 +1,7 @@
 window.addEventListener("DOMContentLoaded", async () => {
+  // --- Logo smoke effect ---
+  initLogoSmoke();
+
   const config = await window.vapenvibe.getConfig();
 
   const shortcutEl = document.getElementById("shortcut");
@@ -405,3 +408,19 @@ window.addEventListener("DOMContentLoaded", async () => {
     micSelect.innerHTML = '<option value="default">No mic access</option>';
   }
 });
+
+// --- Logo smoke effect (SVG turbulence animation) ---
+function initLogoSmoke() {
+  const turb = document.getElementById("smoke-turbulence");
+  let frame = 0;
+  const rad = Math.PI / 180;
+
+  function animateTurbulence() {
+    frame += 0.15;
+    const bfx = 0.02 + 0.004 * Math.cos(frame * rad);
+    const bfy = 0.02 + 0.004 * Math.sin(frame * rad * 0.7);
+    turb.setAttribute("baseFrequency", `${bfx} ${bfy}`);
+    requestAnimationFrame(animateTurbulence);
+  }
+  requestAnimationFrame(animateTurbulence);
+}

@@ -16,8 +16,42 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <!-- SVG filter for smoky text distortion -->
+    <svg class="svg-filters" width="0" height="0" aria-hidden="true">
+      <filter
+        id="smoke-filter"
+        x="-5%"
+        y="-5%"
+        width="110%"
+        height="110%"
+        color-interpolation-filters="sRGB"
+      >
+        <feTurbulence
+          id="smoke-turbulence"
+          type="fractalNoise"
+          baseFrequency="0.02"
+          numOctaves="4"
+          result="noise"
+        />
+        <feDisplacementMap
+          in="SourceGraphic"
+          in2="noise"
+          scale="3"
+          result="displaced"
+        />
+        <feGaussianBlur in="displaced" stdDeviation="0.4" />
+      </filter>
+    </svg>
+
     <header>
-      <span class="logo">vape 'n' vibe</span>
+      <div class="logo-wrap">
+        <span class="smoke-wisp wisp-1"></span>
+        <span class="smoke-wisp wisp-2"></span>
+        <span class="smoke-wisp wisp-3"></span>
+        <span class="smoke-wisp wisp-4"></span>
+        <span class="smoke-wisp wisp-5"></span>
+        <span class="logo">vape 'n' vibe</span>
+      </div>
     </header>
     <main>
       <div class="setting">
