@@ -11,26 +11,17 @@ permissions:
 
 jobs:
   build-mac:
-    strategy:
-      matrix:
-        arch: [x64, arm64]
-    runs-on: ${{ matrix.arch == 'arm64' && 'macos-14' || 'macos-13' }}
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Build native fn_key_monitor
-        run: |
-          if [ -f binding.gyp ]; then
-            npx node-gyp rebuild
-          fi
 
       - name: Import code signing certificate
         env:
@@ -54,8 +45,8 @@ jobs:
           mkdir -p ~/.private_keys
           echo "$APPLE_API_KEY" | base64 --decode > ~/.private_keys/AuthKey_N3Z8QG6Z9Q.p8
 
-      - name: Build macOS DMG (${{ matrix.arch }})
-        run: npx electron-builder --mac --${{ matrix.arch }} --publish never
+      - name: Build macOS DMG (arm64)
+        run: npx electron-builder --mac --arm64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
@@ -64,7 +55,7 @@ jobs:
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mac-${{ matrix.arch }}
+          name: mac-arm64
           path: release/*.dmg
           if-no-files-found: error
 
@@ -75,7 +66,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies

@@ -9,6 +9,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "install": "node -e \"if(process.platform==='darwin')require('child_process').execSync('node-gyp rebuild',{stdio:'inherit'})\"",
     "postinstall": "electron-builder install-app-deps",
     "build": "electron-builder --publish never",
     "build:mac": "electron-builder --mac --publish never",
@@ -49,7 +50,7 @@
       "node_modules/node-llama-cpp/**",
       "build/Release/*.node"
     ],
-    "afterSign": "build/notarize.js",
+    "afterSign": "scripts/notarize.js",
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "assets/icon.icns",
@@ -57,7 +58,6 @@
         {
           "target": "dmg",
           "arch": [
-            "x64",
             "arm64"
           ]
         }

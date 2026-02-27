@@ -4,7 +4,6 @@ out/
 release/
 build/
 !build/entitlements.mac.plist
-!build/notarize.js
 .DS_Store
 models/*.bin
 models/*.gguf
