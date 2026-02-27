@@ -49,6 +49,7 @@
       "node_modules/node-llama-cpp/**",
       "build/Release/*.node"
     ],
+    "afterSign": "build/notarize.js",
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "assets/icon.icns",
@@ -64,7 +65,10 @@
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "hardenedRuntime": true,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "signIgnore": [
+        "libwhisper"
+      ]
     },
     "dmg": {
       "contents": [
@@ -102,6 +106,7 @@
     }
   },
   "devDependencies": {
+    "@electron/notarize": "^3.1.1",
     "@eslint/js": "^10.0.1",
     "electron": "^40.6.1",
     "electron-builder": "^26.8.1",
