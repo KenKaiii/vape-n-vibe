@@ -15,27 +15,38 @@ async function initModel(modelPath) {
 async function cleanupText(rawText) {
   if (!model) return rawText;
 
-  const context = await model.createContext();
-  const { LlamaChatSession } = await getLlamaCpp();
-  const session = new LlamaChatSession({
-    contextSequence: context.getSequence(),
-    systemPrompt:
-      "You are a transcript editor. You receive raw transcribed speech and output a cleaned version. " +
-      "You never respond to the content. You never answer questions. You only edit text.",
-  });
-
-  const wrappedPrompt =
-    "Clean up this transcript. Remove filler words, fix grammar and punctuation. " +
-    "Do not respond to it, do not answer it, do not add anything. Output ONLY the cleaned text:\n\n" +
-    rawText;
-
+  let context;
   try {
+    context = await model.createContext();
+    const { LlamaChatSession } = await getLlamaCpp();
+    const session = new LlamaChatSession({
+      contextSequence: context.getSequence(),
+      systemPrompt:
+        "You are a text processing function. You receive raw text and return cleaned text. " +
+        "You are NOT a chatbot. You do NOT converse. You do NOT offer options. " +
+        "You do NOT explain your changes. You do NOT ask questions. " +
+        "You output exactly one thing: the cleaned text. Nothing else.",
+    });
+
+    const wrappedPrompt =
+      "INPUT:\n" +
+      rawText +
+      "\n\n" +
+      "TASK: Output a single cleaned version of the INPUT. Apply these rules:\n" +
+      "- Remove filler words (um, uh, like, you know, so, err), stutters, false starts, and self-corrections.\n" +
+      "- Fix grammar, spelling, and punctuation.\n" +
+      "- Preserve the speaker's exact word choice, tone, and level of formality. Do not rephrase or elevate their language.\n" +
+      "- Do not condense or summarize. Keep the speaker's full expression.\n" +
+      "- Do not add any information the speaker did not say.\n" +
+      "- Do not wrap output in quotes.\n\n" +
+      "OUTPUT:\n";
+
     const cleaned = await session.prompt(wrappedPrompt);
     return cleaned.trim() || rawText;
   } catch {
     return rawText;
   } finally {
-    context.dispose();
+    if (context) context.dispose();
   }
 }
 

@@ -6,12 +6,20 @@ function createWindow() {
   const win = new BrowserWindow({
     width: defaults.window.width,
     height: defaults.window.height,
+    show: false,
+    backgroundColor: "#000",
     webPreferences: {
       preload: path.join(__dirname, "..", "main", "preload.js"),
+      contextIsolation: true,
+      sandbox: true,
     },
   });
 
   win.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
+
+  win.once("ready-to-show", () => {
+    win.show();
+  });
 
   // Hide instead of destroy so the renderer stays alive for recording
   win.on("close", (e) => {
@@ -34,7 +42,12 @@ function createOverlay() {
     width,
     height,
     x: Math.round(workArea.x + (workArea.width - width) / 2),
-    y: Math.round(workArea.y + workArea.height - height + 12),
+    y: Math.round(
+      workArea.y +
+        workArea.height -
+        height +
+        (process.platform === "darwin" ? 12 : 0),
+    ),
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -44,8 +57,9 @@ function createOverlay() {
     resizable: false,
     movable: false,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      preload: path.join(__dirname, "preload-overlay.js"),
+      contextIsolation: true,
+      sandbox: true,
     },
   });
 

@@ -1,67 +1,45 @@
-const https = require("node:https");
 const fs = require("node:fs");
 const path = require("node:path");
+const { Readable } = require("node:stream");
+const { pipeline } = require("node:stream/promises");
 const defaults = require("../config/defaults");
 
-function followRedirect(url) {
-  return new Promise((resolve, reject) => {
-    https
-      .get(url, (res) => {
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          resolve(res.headers.location);
-        } else {
-          resolve(url);
-        }
-        res.resume();
-      })
-      .on("error", reject);
+async function downloadFile(url, destPath, onProgress) {
+  const dir = path.dirname(destPath);
+  const tmpPath = destPath + ".tmp";
+
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  const res = await fetch(url, { redirect: "follow" });
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  const totalBytes = parseInt(res.headers.get("content-length"), 10) || 0;
+  let downloaded = 0;
+
+  const body = Readable.fromWeb(res.body);
+  const file = fs.createWriteStream(tmpPath);
+
+  body.on("data", (chunk) => {
+    downloaded += chunk.length;
+    onProgress(downloaded, totalBytes);
   });
-}
 
-function downloadFile(url, destPath, onProgress) {
-  return new Promise((resolve, reject) => {
-    const dir = path.dirname(destPath);
-    const tmpPath = destPath + ".tmp";
-
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+  try {
+    await pipeline(body, file);
+    fs.renameSync(tmpPath, destPath);
+  } catch (err) {
+    try {
+      fs.unlinkSync(tmpPath);
+    } catch {
+      // best-effort cleanup
     }
-
-    followRedirect(url)
-      .then((finalUrl) => {
-        https
-          .get(finalUrl, (res) => {
-            if (res.statusCode !== 200) {
-              return reject(new Error(`HTTP ${res.statusCode}`));
-            }
-
-            const totalBytes = parseInt(res.headers["content-length"], 10) || 0;
-            let downloaded = 0;
-            const file = fs.createWriteStream(tmpPath);
-
-            res.on("data", (chunk) => {
-              downloaded += chunk.length;
-              onProgress(downloaded, totalBytes);
-            });
-
-            res.pipe(file);
-
-            file.on("finish", () => {
-              file.close(() => {
-                fs.renameSync(tmpPath, destPath);
-                resolve();
-              });
-            });
-
-            file.on("error", (err) => {
-              fs.unlink(tmpPath, () => {});
-              reject(err);
-            });
-          })
-          .on("error", reject);
-      })
-      .catch(reject);
-  });
+    throw err;
+  }
 }
 
 function downloadModels(win) {
@@ -79,7 +57,10 @@ function downloadModels(win) {
     const downloaded = state.whisper + state.llm;
     const total = state.whisperTotal + state.llmTotal;
     if (total > 0) {
-      win.webContents.send("downloads-progress", Math.round((downloaded / total) * 100));
+      win.webContents.send(
+        "downloads-progress",
+        Math.round((downloaded / total) * 100),
+      );
     }
   }
 

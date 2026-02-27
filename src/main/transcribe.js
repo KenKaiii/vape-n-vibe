@@ -10,21 +10,24 @@ const WHISPER_CPP = path.join(
   "whisper-node",
   "lib",
   "whisper.cpp",
-  "main"
+  process.platform === "win32" ? "main.exe" : "main",
 );
 
 function transcribe(wavPath) {
   return new Promise((resolve, reject) => {
     const args = [
-      "-l", defaults.model.lang,
-      "-m", defaults.model.path,
-      "-f", wavPath,
+      "-l",
+      defaults.model.lang,
+      "-m",
+      defaults.model.path,
+      "-f",
+      wavPath,
       "--no-timestamps",
     ];
 
     console.log("[transcribe] running:", WHISPER_CPP, args.join(" "));
 
-    execFile(WHISPER_CPP, args, { timeout: 30000 }, (err, stdout, stderr) => {
+    execFile(WHISPER_CPP, args, { timeout: 30000 }, (err, stdout) => {
       if (err) {
         console.error("[transcribe] error:", err.message);
         return reject(err);

@@ -1,28 +1,60 @@
 const path = require("node:path");
 const { uIOhook, UiohookKey } = require("uiohook-napi");
-const { systemPreferences, shell, dialog } = require("electron");
+const { systemPreferences, shell } = require("electron");
 
 // --- Native fn key monitor (macOS only) ---
 let fnMonitor = null;
 try {
-  fnMonitor = require(path.join(__dirname, "..", "..", "build", "Release", "fn_key_monitor.node"));
+  fnMonitor = require(
+    path.join(__dirname, "..", "..", "build", "Release", "fn_key_monitor.node"),
+  );
 } catch {
   console.log("[hotkey] Native fn_key_monitor not available");
 }
 
 // --- uiohook key mapping ---
 const KEY_MAP = {
-  A: UiohookKey.A, B: UiohookKey.B, C: UiohookKey.C, D: UiohookKey.D,
-  E: UiohookKey.E, F: UiohookKey.F, G: UiohookKey.G, H: UiohookKey.H,
-  I: UiohookKey.I, J: UiohookKey.J, K: UiohookKey.K, L: UiohookKey.L,
-  M: UiohookKey.M, N: UiohookKey.N, O: UiohookKey.O, P: UiohookKey.P,
-  Q: UiohookKey.Q, R: UiohookKey.R, S: UiohookKey.S, T: UiohookKey.T,
-  U: UiohookKey.U, V: UiohookKey.V, W: UiohookKey.W, X: UiohookKey.X,
-  Y: UiohookKey.Y, Z: UiohookKey.Z,
-  Space: UiohookKey.Space, Enter: UiohookKey.Enter, Tab: UiohookKey.Tab,
-  F1: UiohookKey.F1, F2: UiohookKey.F2, F3: UiohookKey.F3, F4: UiohookKey.F4,
-  F5: UiohookKey.F5, F6: UiohookKey.F6, F7: UiohookKey.F7, F8: UiohookKey.F8,
-  F9: UiohookKey.F9, F10: UiohookKey.F10, F11: UiohookKey.F11, F12: UiohookKey.F12,
+  A: UiohookKey.A,
+  B: UiohookKey.B,
+  C: UiohookKey.C,
+  D: UiohookKey.D,
+  E: UiohookKey.E,
+  F: UiohookKey.F,
+  G: UiohookKey.G,
+  H: UiohookKey.H,
+  I: UiohookKey.I,
+  J: UiohookKey.J,
+  K: UiohookKey.K,
+  L: UiohookKey.L,
+  M: UiohookKey.M,
+  N: UiohookKey.N,
+  O: UiohookKey.O,
+  P: UiohookKey.P,
+  Q: UiohookKey.Q,
+  R: UiohookKey.R,
+  S: UiohookKey.S,
+  T: UiohookKey.T,
+  U: UiohookKey.U,
+  V: UiohookKey.V,
+  W: UiohookKey.W,
+  X: UiohookKey.X,
+  Y: UiohookKey.Y,
+  Z: UiohookKey.Z,
+  Space: UiohookKey.Space,
+  Enter: UiohookKey.Enter,
+  Tab: UiohookKey.Tab,
+  F1: UiohookKey.F1,
+  F2: UiohookKey.F2,
+  F3: UiohookKey.F3,
+  F4: UiohookKey.F4,
+  F5: UiohookKey.F5,
+  F6: UiohookKey.F6,
+  F7: UiohookKey.F7,
+  F8: UiohookKey.F8,
+  F9: UiohookKey.F9,
+  F10: UiohookKey.F10,
+  F11: UiohookKey.F11,
+  F12: UiohookKey.F12,
 };
 
 const MOD_KEYCODES = {
@@ -148,7 +180,9 @@ function requestAccessibility() {
   } else {
     systemPreferences.isTrustedAccessibilityClient(true);
   }
-  shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
+  shell.openExternal(
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+  );
 }
 
 function registerHotkey(hotkey, cbs) {
@@ -159,8 +193,16 @@ function registerHotkey(hotkey, cbs) {
   console.log("[hotkey] Registering:", hotkey, "→", parsed.type);
 
   if (parsed.type === "fn") {
-    stopFnMonitor();
-    startFnMonitor();
+    if (process.platform !== "darwin") {
+      console.warn(
+        "[hotkey] fn key is not available on this platform — falling back to uiohook",
+      );
+      stopFnMonitor();
+      startUiohook();
+    } else {
+      stopFnMonitor();
+      startFnMonitor();
+    }
   } else {
     stopFnMonitor();
     startUiohook();
@@ -173,7 +215,14 @@ function updateHotkey(hotkey) {
   console.log("[hotkey] Updated:", hotkey, "→", parsed.type);
 
   if (parsed.type === "fn") {
-    startFnMonitor();
+    if (process.platform !== "darwin") {
+      console.warn(
+        "[hotkey] fn key is not available on this platform — using uiohook",
+      );
+      if (!uiohookStarted) startUiohook();
+    } else {
+      startFnMonitor();
+    }
   } else if (!uiohookStarted) {
     startUiohook();
   }
@@ -187,4 +236,10 @@ function stopHotkey() {
   }
 }
 
-module.exports = { registerHotkey, updateHotkey, stopHotkey, checkAccessibility, requestAccessibility };
+module.exports = {
+  registerHotkey,
+  updateHotkey,
+  stopHotkey,
+  checkAccessibility,
+  requestAccessibility,
+};

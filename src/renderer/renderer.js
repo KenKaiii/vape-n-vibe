@@ -89,10 +89,19 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     const deviceId = micSelect.value;
     audioContext = new AudioContext({ sampleRate: 16000 });
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: { deviceId, channelCount: 1, sampleRate: 16000 },
-    });
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId, channelCount: 1, sampleRate: 16000 },
+      });
+    } catch (err) {
+      await audioContext.close();
+      audioContext = null;
+      isRecording = false;
+      shortcutEl.classList.remove("recording");
+      throw err;
+    }
     const source = audioContext.createMediaStreamSource(stream);
+    audioContext._source = source; // store reference for cleanup
 
     // Set up analyser for overlay visualizer
     analyser = audioContext.createAnalyser();
@@ -108,12 +117,14 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
     }, 33);
 
-    processor = audioContext.createScriptProcessor(4096, 1, 1);
-    processor.onaudioprocess = (e) => {
+    await audioContext.audioWorklet.addModule("audio-worklet-processor.js");
+    processor = new AudioWorkletNode(audioContext, "recorder-processor");
+    processor.port.onmessage = (e) => {
       if (isRecording) {
-        audioChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+        audioChunks.push(e.data);
       }
     };
+    processor.port.postMessage("start");
 
     source.connect(processor);
     processor.connect(audioContext.destination);
@@ -129,7 +140,11 @@ window.addEventListener("DOMContentLoaded", async () => {
       vizInterval = null;
     }
 
-    if (processor) processor.disconnect();
+    if (processor) {
+      processor.port.postMessage("stop");
+      processor.disconnect();
+    }
+    if (audioContext && audioContext._source) audioContext._source.disconnect();
     if (stream) stream.getTracks().forEach((t) => t.stop());
     analyser = null;
     freqData = null;
@@ -211,6 +226,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   const resetFnBtn = document.getElementById("reset-fn");
 
   function updateFnButton() {
+    // fn key is macOS-only — always hide the reset button on other platforms
+    if (config.platform !== "darwin") {
+      resetFnBtn.classList.add("hidden");
+      return;
+    }
     resetFnBtn.classList.toggle("hidden", config.hotkey === "fn");
   }
 
@@ -281,7 +301,8 @@ window.addEventListener("DOMContentLoaded", async () => {
       if (k === "Control") mods.push("Ctrl");
       else if (k === "Alt") mods.push("Alt");
       else if (k === "Shift") mods.push("Shift");
-      else if (k === "Meta") mods.push("Cmd");
+      else if (k === "Meta")
+        mods.push(config.platform === "win32" ? "Win" : "Cmd");
       else parts.push(k.length === 1 ? k.toUpperCase() : k);
     }
     return [...mods, ...parts].join("+");
@@ -303,16 +324,27 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  // Hide accessibility row on non-macOS platforms
+  if (config.platform !== "darwin") {
+    const accessRow =
+      accessStatus.closest(".row") || accessStatus.parentElement;
+    if (accessRow) accessRow.classList.add("hidden");
+  }
+
   updateAccessUI(config.accessibilityGranted);
 
+  let accessPoll = null;
   grantAccessBtn.addEventListener("click", async () => {
     await window.vapenvibe.requestAccessibility();
     grantAccessBtn.textContent = "Waiting…";
+    // Clear any existing poll before starting a new one
+    if (accessPoll) clearInterval(accessPoll);
     // Poll for permission grant (user must toggle in System Settings)
-    const poll = setInterval(async () => {
+    accessPoll = setInterval(async () => {
       const granted = await window.vapenvibe.checkAccessibility();
       if (granted) {
-        clearInterval(poll);
+        clearInterval(accessPoll);
+        accessPoll = null;
         updateAccessUI(true);
       }
     }, 2000);
@@ -320,7 +352,10 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // --- Microphone dropdown ---
   try {
-    await navigator.mediaDevices.getUserMedia({ audio: true });
+    const tempStream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+    });
+    tempStream.getTracks().forEach((t) => t.stop());
     const devices = await navigator.mediaDevices.enumerateDevices();
     const mics = devices.filter((d) => d.kind === "audioinput");
 

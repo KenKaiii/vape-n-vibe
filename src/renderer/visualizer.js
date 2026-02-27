@@ -1,5 +1,3 @@
-const { ipcRenderer } = require("electron");
-
 const canvas = document.getElementById("viz");
 const ctx = canvas.getContext("2d");
 const cx = canvas.width / 2;
@@ -11,7 +9,6 @@ let mode = "idle"; // "recording" | "processing" | "idle"
 let freqData = null;
 let smoothBars = new Float32Array(barCount);
 let spinAngle = 0;
-let frame = null;
 let fadeAlpha = 0;
 let targetAlpha = 0;
 
@@ -21,7 +18,7 @@ function draw() {
   if (fadeAlpha < 0.01 && targetAlpha === 0) {
     fadeAlpha = 0;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    frame = requestAnimationFrame(draw);
+    requestAnimationFrame(draw);
     return;
   }
 
@@ -35,7 +32,7 @@ function draw() {
   }
 
   ctx.globalAlpha = 1;
-  frame = requestAnimationFrame(draw);
+  requestAnimationFrame(draw);
 }
 
 function drawWaveform() {
@@ -122,8 +119,8 @@ function drawSpinner() {
   ctx.fill();
 }
 
-// --- IPC listeners ---
-ipcRenderer.on("viz-mode", (_e, newMode) => {
+// --- IPC listeners via preload bridge ---
+window.vizBridge.onVizMode((newMode) => {
   mode = newMode;
   if (newMode === "idle") {
     targetAlpha = 0;
@@ -135,9 +132,9 @@ ipcRenderer.on("viz-mode", (_e, newMode) => {
   }
 });
 
-ipcRenderer.on("viz-freq", (_e, data) => {
+window.vizBridge.onVizFreq((data) => {
   freqData = data;
 });
 
 // Start render loop
-frame = requestAnimationFrame(draw);
+requestAnimationFrame(draw);
