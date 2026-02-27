@@ -50,7 +50,6 @@
       "node_modules/node-llama-cpp/**",
       "build/Release/*.node"
     ],
-    "afterSign": "scripts/notarize.js",
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "assets/icon.icns",
@@ -66,6 +65,7 @@
       "entitlementsInherit": "scripts/entitlements.mac.plist",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
+      "notarize": true,
       "signIgnore": [
         "libwhisper"
       ]
