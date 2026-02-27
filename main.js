@@ -168,6 +168,13 @@ app.whenReady().then(() => {
     return true;
   });
 
+  ipcMain.handle("restart-app", (event) => {
+    if (!validateSender(event.senderFrame)) return false;
+    app.relaunch();
+    app.exit(0);
+    return true;
+  });
+
   // Forward frequency data from renderer to overlay
   ipcMain.on("viz-freq", (event, data) => {
     if (!validateSender(event.senderFrame)) return;

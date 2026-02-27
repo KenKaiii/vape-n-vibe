@@ -16,6 +16,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   const langSelect = document.getElementById("lang-select");
   const updateBtn = document.getElementById("update-btn");
   const versionBadge = document.getElementById("version-badge");
+  const restartBtn = document.getElementById("restart-btn");
 
   // --- Language selector ---
   langSelect.value = config.language;
@@ -95,6 +96,15 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  // --- Restart button ---
+  function showRestartBtn() {
+    restartBtn.classList.remove("hidden");
+  }
+
+  restartBtn.addEventListener("click", () => {
+    window.vapenvibe.restartApp();
+  });
+
   // --- Cleanup toggle state ---
   let cleanupEnabled = config.cleanupEnabled;
 
@@ -143,6 +153,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     downloadProgress.classList.add("hidden");
     modelsReady = true;
     updateFooter();
+    showRestartBtn();
   });
 
   window.vapenvibe.onDownloadsError((msg) => {
@@ -467,6 +478,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         clearInterval(accessPoll);
         accessPoll = null;
         updateAccessUI(true);
+        showRestartBtn();
       }
     }, 2000);
   });

@@ -310,6 +310,21 @@ footer {
   color: #999;
 }
 
+.restart-btn {
+  background: none;
+  border: 1px solid #4cd964;
+  color: #4cd964;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.restart-btn:hover {
+  border-color: #5de075;
+  color: #5de075;
+}
+
 .access-status {
   font-size: 12px;
   color: #666;
