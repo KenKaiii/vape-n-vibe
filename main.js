@@ -22,6 +22,7 @@ const {
   checkAccessibility,
   requestAccessibility,
 } = require("./src/main/hotkey");
+const { muteSystem, unmuteSystem } = require("./src/main/audio-control");
 
 // --- Global error handlers ---
 process.on("unhandledRejection", (reason) => {
@@ -212,6 +213,7 @@ app.whenReady().then(() => {
       if (recording) return;
       recording = true;
       console.log("[main] Recording started");
+      if (defaults.recording.muteWhileRecording) muteSystem();
       sendToOverlay("viz-mode", "recording");
       const win = getWin();
       if (win) win.webContents.send("recording-toggle", true);
@@ -220,6 +222,7 @@ app.whenReady().then(() => {
       if (!recording) return;
       recording = false;
       console.log("[main] Recording stopped");
+      if (defaults.recording.muteWhileRecording) unmuteSystem();
       const win = getWin();
       if (win) {
         win.webContents.send("recording-toggle", false);
@@ -231,7 +234,10 @@ app.whenReady().then(() => {
   });
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    } else {
       mainWindow = createWindow();
     }
   });
