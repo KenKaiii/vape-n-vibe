@@ -13,6 +13,13 @@ window.addEventListener("DOMContentLoaded", async () => {
   const downloadProgress = document.getElementById("download-progress");
   const cleanupToggle = document.getElementById("cleanup-toggle");
   const micSelect = document.getElementById("mic-select");
+  const langSelect = document.getElementById("lang-select");
+
+  // --- Language selector ---
+  langSelect.value = config.language;
+  langSelect.addEventListener("change", () => {
+    window.vapenvibe.setLanguage(langSelect.value);
+  });
 
   // --- Hotkey display ---
   shortcutEl.textContent = displayHotkey(config.hotkey);
@@ -37,8 +44,8 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   function updateFooter() {
     if (modelsReady) {
-      tooltipWhisper.textContent = "Whisper: " + config.model;
-      tooltipLlm.textContent = "LLM: " + config.llmModel;
+      tooltipWhisper.textContent = `Whisper: ${config.model}`;
+      tooltipLlm.textContent = `LLM: ${config.llmModel}`;
       modelInfo.classList.remove("hidden");
       downloadBtn.classList.add("hidden");
     } else {
@@ -202,10 +209,16 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // Listen for push-to-talk from main process
   window.vapenvibe.onRecordingToggle(async (on) => {
-    if (on) {
-      await startRecording();
-    } else {
-      await stopRecording();
+    try {
+      if (on) {
+        await startRecording();
+      } else {
+        await stopRecording();
+      }
+    } catch (err) {
+      console.error("[renderer] Recording error:", err);
+      isRecording = false;
+      shortcutEl.classList.remove("recording");
     }
   });
 

@@ -1,41 +1,34 @@
 const { execFile } = require("node:child_process");
+const { promisify } = require("node:util");
+
+const execFileAsync = promisify(execFile);
 
 let wasMutedBefore = false;
 
-function getOutputMuted() {
-  return new Promise((resolve) => {
-    if (process.platform === "darwin") {
-      execFile(
-        "osascript",
-        ["-e", "output muted of (get volume settings)"],
-        (err, stdout) => {
-          if (err) {
-            resolve(false);
-            return;
-          }
-          resolve(stdout.trim() === "true");
-        },
-      );
-    } else {
-      // TODO: Windows/Linux support
-      resolve(false);
+async function getOutputMuted() {
+  if (process.platform === "darwin") {
+    try {
+      const { stdout } = await execFileAsync("osascript", [
+        "-e",
+        "output muted of (get volume settings)",
+      ]);
+      return stdout.trim() === "true";
+    } catch {
+      return false;
     }
-  });
+  }
+  // TODO: Windows/Linux support
+  return false;
 }
 
-function setOutputMuted(muted) {
-  return new Promise((resolve, reject) => {
-    if (process.platform === "darwin") {
-      execFile(
-        "osascript",
-        ["-e", `set volume output muted ${muted}`],
-        (err) => (err ? reject(err) : resolve()),
-      );
-    } else {
-      // TODO: Windows/Linux support
-      resolve();
-    }
-  });
+async function setOutputMuted(muted) {
+  if (process.platform === "darwin") {
+    await execFileAsync("osascript", [
+      "-e",
+      `set volume output muted ${muted}`,
+    ]);
+  }
+  // TODO: Windows/Linux support
 }
 
 async function muteSystem() {

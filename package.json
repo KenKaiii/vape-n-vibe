@@ -30,7 +30,6 @@
       "main.js",
       "src/**/*",
       "assets/**/*",
-      "node_modules/**/*",
       "!src/native/**",
       "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
       "!**/node_modules/**/*.{map,ts}"

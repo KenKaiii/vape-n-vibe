@@ -12,7 +12,8 @@ const defaults = {
     name: "whisper-large-v3-turbo-q5",
     file: "ggml-large-v3-turbo-q5_0.bin",
     url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin",
-    lang: "en",
+    sha256: null,
+    lang: "auto",
     threads: 4,
   },
 
@@ -39,6 +40,7 @@ const defaults = {
     name: "gemma-3-1b-it-Q4_K_M",
     file: "gemma-3-1b-it-Q4_K_M.gguf",
     url: "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf",
+    sha256: null,
   },
 
   // Paths — resolved lazily via resolveModelPaths() after app.whenReady()

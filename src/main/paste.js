@@ -1,49 +1,43 @@
 const { clipboard } = require("electron");
 const { execFile } = require("node:child_process");
+const { promisify } = require("node:util");
 
-function simulatePaste() {
-  return new Promise((resolve, reject) => {
-    const platform = process.platform;
+const execFileAsync = promisify(execFile);
 
-    if (platform === "darwin") {
-      execFile(
-        "osascript",
-        [
-          "-e",
-          'tell application "System Events" to keystroke "v" using command down',
-        ],
-        (err) => (err ? reject(err) : resolve()),
-      );
-    } else if (platform === "win32") {
-      execFile(
-        "powershell",
-        [
-          "-command",
-          "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')",
-        ],
-        (err) => (err ? reject(err) : resolve()),
-      );
-    } else {
-      execFile("xdotool", ["key", "ctrl+v"], (err) =>
-        err ? reject(err) : resolve(),
-      );
-    }
-  });
+async function simulatePaste() {
+  const platform = process.platform;
+
+  if (platform === "darwin") {
+    await execFileAsync("osascript", [
+      "-e",
+      'tell application "System Events" to keystroke "v" using command down',
+    ]);
+  } else if (platform === "win32") {
+    await execFileAsync("powershell", [
+      "-command",
+      "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')",
+    ]);
+  } else {
+    await execFileAsync("xdotool", ["key", "ctrl+v"]);
+  }
 }
 
 async function pasteText(text) {
-  // Save current clipboard, paste text, restore after short delay
+  console.log("[paste] Pasting text:", JSON.stringify(text));
   const prev = clipboard.readText();
   clipboard.writeText(text);
 
   try {
     await simulatePaste();
+    console.log("[paste] Keystroke dispatched, waiting for target app...");
   } catch (err) {
     console.error("[paste] Failed to simulate paste:", err.message);
   }
 
-  // Restore previous clipboard after a short delay
-  setTimeout(() => clipboard.writeText(prev), 500);
+  // Wait for the target app to read the clipboard before restoring
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  clipboard.writeText(prev);
+  console.log("[paste] Clipboard restored");
 }
 
 module.exports = { pasteText };

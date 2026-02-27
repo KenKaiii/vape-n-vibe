@@ -28,25 +28,27 @@ async function cleanupText(rawText) {
         "You output exactly one thing: the cleaned text. Nothing else.",
     });
 
-    const wrappedPrompt =
-      "INPUT:\n" +
-      rawText +
-      "\n\n" +
-      "TASK: Output a single cleaned version of the INPUT. Apply these rules:\n" +
-      "- Remove filler words (um, uh, like, you know, so, err), stutters, false starts, and self-corrections.\n" +
-      "- Fix grammar, spelling, and punctuation.\n" +
-      "- Preserve the speaker's exact word choice, tone, and level of formality. Do not rephrase or elevate their language.\n" +
-      "- Do not condense or summarize. Keep the speaker's full expression.\n" +
-      "- Do not add any information the speaker did not say.\n" +
-      "- Do not wrap output in quotes.\n\n" +
-      "OUTPUT:\n";
+    const wrappedPrompt = `INPUT:
+${rawText}
+
+TASK: Output a single cleaned version of the INPUT. Apply these rules:
+- Remove filler words (um, uh, like, you know, so, err), stutters, false starts, and self-corrections.
+- Fix grammar, spelling, and punctuation.
+- Preserve the speaker's exact word choice, tone, and level of formality. Do not rephrase or elevate their language.
+- Do not condense or summarize. Keep the speaker's full expression.
+- Do not add any information the speaker did not say.
+- Do not wrap output in quotes.
+
+OUTPUT:
+`;
 
     const cleaned = await session.prompt(wrappedPrompt);
     return cleaned.trim() || rawText;
-  } catch {
+  } catch (err) {
+    console.warn("[llm] Text cleanup failed:", err.message);
     return rawText;
   } finally {
-    if (context) context.dispose();
+    if (context) await context.dispose();
   }
 }
 

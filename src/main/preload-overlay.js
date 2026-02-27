@@ -2,11 +2,13 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("vizBridge", {
   onVizMode: (cb) => {
-    ipcRenderer.removeAllListeners("viz-mode");
-    ipcRenderer.on("viz-mode", (_e, mode) => cb(mode));
+    const handler = (_e, mode) => cb(mode);
+    ipcRenderer.on("viz-mode", handler);
+    return () => ipcRenderer.removeListener("viz-mode", handler);
   },
   onVizFreq: (cb) => {
-    ipcRenderer.removeAllListeners("viz-freq");
-    ipcRenderer.on("viz-freq", (_e, data) => cb(data));
+    const handler = (_e, data) => cb(data);
+    ipcRenderer.on("viz-freq", handler);
+    return () => ipcRenderer.removeListener("viz-freq", handler);
   },
 });

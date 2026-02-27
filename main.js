@@ -40,7 +40,13 @@ let recording = false;
 
 function validateSender(frame) {
   if (!frame || !frame.url) return false;
-  return frame.url.startsWith("file://");
+  try {
+    const parsed = new URL(frame.url);
+    if (parsed.protocol !== "file:") return false;
+    return parsed.pathname.includes("/src/renderer/");
+  } catch {
+    return false;
+  }
 }
 
 function getWin() {
@@ -77,6 +83,7 @@ app.whenReady().then(() => {
       llmModelExists: fs.existsSync(defaults.llm.path),
       accessibilityGranted: checkAccessibility(),
       platform: process.platform,
+      language: store.get("language"),
     };
   });
 
@@ -84,6 +91,12 @@ app.whenReady().then(() => {
     if (!validateSender(event.senderFrame)) return false;
     store.set("hotkey", hotkey);
     updateHotkey(hotkey);
+    return true;
+  });
+
+  ipcMain.handle("set-language", (event, lang) => {
+    if (!validateSender(event.senderFrame)) return false;
+    store.set("language", lang);
     return true;
   });
 
@@ -99,10 +112,16 @@ app.whenReady().then(() => {
   ipcMain.handle("toggle-cleanup", async (event, enabled) => {
     if (!validateSender(event.senderFrame)) return false;
     store.set("cleanupEnabled", enabled);
-    if (enabled && fs.existsSync(defaults.llm.path)) {
-      await initModel(defaults.llm.path);
-    } else if (!enabled) {
-      await disposeModel();
+    try {
+      if (enabled && fs.existsSync(defaults.llm.path)) {
+        await initModel(defaults.llm.path);
+      } else if (!enabled) {
+        await disposeModel();
+      }
+    } catch (err) {
+      console.error("[main] LLM toggle error:", err);
+      store.set("cleanupEnabled", false);
+      return false;
     }
     return true;
   });
@@ -141,7 +160,7 @@ app.whenReady().then(() => {
       sendToOverlay("viz-mode", "processing");
       if (win) win.webContents.send("transcription-status", "transcribing");
       console.log("[main] Transcribing audio...");
-      let text = await transcribe(wavPath);
+      let text = await transcribe(wavPath, store.get("language"));
       console.log("[main] Transcription result:", text);
 
       if (text && store.get("cleanupEnabled")) {

@@ -1,40 +1,37 @@
 const { execFile } = require("node:child_process");
+const { promisify } = require("node:util");
 const defaults = require("../config/defaults");
 const { getWhisperBinaryPath } = require("../config/paths");
 
+const execFileAsync = promisify(execFile);
 const WHISPER_CPP = getWhisperBinaryPath();
 
-function transcribe(wavPath) {
-  return new Promise((resolve, reject) => {
-    const args = [
-      "-l",
-      defaults.model.lang,
-      "-m",
-      defaults.model.path,
-      "-f",
-      wavPath,
-      "--no-timestamps",
-    ];
+async function transcribe(wavPath, lang) {
+  const args = [
+    "-l",
+    lang || defaults.model.lang,
+    "-m",
+    defaults.model.path,
+    "-f",
+    wavPath,
+    "--no-timestamps",
+  ];
 
-    console.log("[transcribe] running:", WHISPER_CPP, args.join(" "));
+  console.log("[transcribe] running:", WHISPER_CPP, args.join(" "));
 
-    execFile(WHISPER_CPP, args, { timeout: 30000 }, (err, stdout) => {
-      if (err) {
-        console.error("[transcribe] error:", err.message);
-        return reject(err);
-      }
-
-      // whisper.cpp outputs text lines to stdout (with --no-timestamps, plain text)
-      const text = stdout
-        .split("\n")
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0)
-        .join(" ");
-
-      console.log("[transcribe] result:", text);
-      resolve(text);
-    });
+  const { stdout } = await execFileAsync(WHISPER_CPP, args, {
+    timeout: 30000,
+    maxBuffer: 10 * 1024 * 1024,
   });
+
+  const text = stdout
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .join(" ");
+
+  console.log("[transcribe] result:", text);
+  return text;
 }
 
 module.exports = { transcribe };

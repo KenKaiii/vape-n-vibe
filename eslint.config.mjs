@@ -1,5 +1,5 @@
 import js from "@eslint/js";
-import prettier from "eslint-config-prettier";
+import prettier from "eslint-config-prettier/flat";
 import globals from "globals";
 
 export default [
@@ -21,6 +21,6 @@ export default [
     },
   },
   {
-    ignores: ["node_modules/", "dist/", "out/"],
+    ignores: ["node_modules/", "dist/", "out/", "release/"],
   },
 ];

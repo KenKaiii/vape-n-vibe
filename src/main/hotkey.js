@@ -178,9 +178,13 @@ function requestAccessibility() {
   } else {
     systemPreferences.isTrustedAccessibilityClient(true);
   }
-  shell.openExternal(
-    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
-  );
+  shell
+    .openExternal(
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+    )
+    .catch((err) => {
+      console.error("[hotkey] Failed to open System Preferences:", err.message);
+    });
 }
 
 function registerHotkey(hotkey, cbs) {
