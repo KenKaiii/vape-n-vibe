@@ -12,7 +12,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   const micSelect = document.getElementById("mic-select");
 
   // --- Hotkey display ---
-  shortcutEl.textContent = config.hotkey;
+  shortcutEl.textContent = displayHotkey(config.hotkey);
 
   // --- Cleanup toggle state ---
   let cleanupEnabled = config.cleanupEnabled;
@@ -215,7 +215,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       shortcutEl.textContent = "Cleaning\u2026";
       shortcutEl.classList.add("listening");
     } else {
-      shortcutEl.textContent = config.hotkey;
+      shortcutEl.textContent = displayHotkey(config.hotkey);
       shortcutEl.classList.remove("listening");
     }
   });
@@ -244,10 +244,16 @@ window.addEventListener("DOMContentLoaded", async () => {
     updateFnButton();
   }
 
+  function displayHotkey(hotkey) {
+    if (hotkey === "fn") return "fn";
+    if (config.platform !== "darwin") return hotkey;
+    return hotkey.replace(/\bAlt\b/, "Option").replace(/\bCmd\b/, "\u2318");
+  }
+
   async function saveHotkey(hotkey) {
     await window.vapenvibe.setHotkey(hotkey);
     config.hotkey = hotkey;
-    shortcutEl.textContent = hotkey;
+    shortcutEl.textContent = displayHotkey(hotkey);
     stopListening();
   }
 
@@ -265,19 +271,47 @@ window.addEventListener("DOMContentLoaded", async () => {
     await saveHotkey("fn");
   });
 
+  function physicalKey(e) {
+    const code = e.code;
+    if (code.startsWith("Key")) return code.slice(3);
+    if (code.startsWith("Digit")) return code.slice(5);
+    const codeMap = {
+      Space: "Space",
+      Enter: "Enter",
+      Tab: "Tab",
+      Backquote: "`",
+      Minus: "-",
+      Equal: "=",
+      BracketLeft: "[",
+      BracketRight: "]",
+      Backslash: "\\",
+      Semicolon: ";",
+      Quote: "'",
+      Comma: ",",
+      Period: ".",
+      Slash: "/",
+    };
+    if (codeMap[code]) return codeMap[code];
+    if (code.startsWith("F") && code.length <= 3) return code;
+    return code;
+  }
+
   document.addEventListener("keydown", (e) => {
     if (!listening) return;
     e.preventDefault();
     e.stopPropagation();
 
-    if (e.key === "Escape") {
-      shortcutEl.textContent = config.hotkey;
+    if (e.code === "Escape") {
+      shortcutEl.textContent = displayHotkey(config.hotkey);
       stopListening();
       return;
     }
 
-    heldKeys.add(e.key);
-    shortcutEl.textContent = formatKeys(heldKeys) || "Press keys\u2026";
+    const MOD_KEYS = ["Control", "Alt", "Shift", "Meta"];
+    const key = MOD_KEYS.includes(e.key) ? e.key : physicalKey(e);
+    heldKeys.add(key);
+    shortcutEl.textContent =
+      displayHotkey(formatKeys(heldKeys)) || "Press keys\u2026";
   });
 
   document.addEventListener("keyup", async (e) => {

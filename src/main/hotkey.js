@@ -219,12 +219,14 @@ function updateHotkey(hotkey) {
       console.warn(
         "[hotkey] fn key is not available on this platform — using uiohook",
       );
+      stopFnMonitor();
       if (!uiohookStarted) startUiohook();
     } else {
       startFnMonitor();
     }
-  } else if (!uiohookStarted) {
-    startUiohook();
+  } else {
+    stopFnMonitor();
+    if (!uiohookStarted) startUiohook();
   }
 }
 

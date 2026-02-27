@@ -57,6 +57,11 @@ function sendToOverlay(channel, data) {
   }
 }
 
+// Set dock icon on macOS
+if (process.platform === "darwin") {
+  app.dock.setIcon(path.join(__dirname, "assets", "icon.png"));
+}
+
 app.whenReady().then(() => {
   ipcMain.handle("get-config", (event) => {
     if (!validateSender(event.senderFrame)) return null;
