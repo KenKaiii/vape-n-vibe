@@ -13,6 +13,7 @@ function createWindow() {
       preload: path.join(__dirname, "..", "main", "preload.js"),
       contextIsolation: true,
       sandbox: true,
+      backgroundThrottling: false,
     },
   });
 
