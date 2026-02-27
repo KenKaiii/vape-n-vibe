@@ -1,0 +1,32 @@
+{
+  "name": "vape-n-vibe",
+  "version": "1.0.0",
+  "description": "Vape 'n' Vibe — push-to-talk voice transcription",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "electron": "^40.6.1",
+    "eslint": "^10.0.2",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.3.0",
+    "prettier": "^3.8.1"
+  },
+  "dependencies": {
+    "electron-store": "^6.0.1",
+    "node-addon-api": "^8.5.0",
+    "node-llama-cpp": "^3.16.2",
+    "uiohook-napi": "^1.5.4",
+    "whisper-node": "^1.1.1"
+  }
+}

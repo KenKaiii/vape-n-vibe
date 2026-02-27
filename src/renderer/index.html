@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self'"
+    />
+    <title>Vape 'n' Vibe</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <span class="logo">Vape 'n' Vibe</span>
+      <button class="hamburger" id="hamburger">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </header>
+    <main>
+      <div class="setting">
+        <label class="setting-label">Transcribe</label>
+        <div class="shortcut-group">
+          <span class="shortcut-key" id="shortcut">fn</span>
+          <button class="change-btn" id="change-hotkey">Change</button>
+          <button class="change-btn hidden" id="reset-fn">fn</button>
+        </div>
+      </div>
+      <div class="setting">
+        <label class="setting-label">Microphone</label>
+        <select class="mic-select" id="mic-select">
+          <option value="default">Default</option>
+        </select>
+      </div>
+      <div class="setting">
+        <label class="setting-label">Text cleanup</label>
+        <div class="toggle-switch" id="cleanup-toggle">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
+      <div class="setting" id="accessibility-setting">
+        <label class="setting-label">Accessibility</label>
+        <span class="access-status" id="access-status">Checking…</span>
+        <button class="change-btn hidden" id="grant-access-btn">Grant</button>
+      </div>
+    </main>
+    <footer>
+      <div class="footer-left">
+        <span class="model-info hidden" id="model-info">
+          <span class="model-label">Models</span>
+          <span class="model-info-icon" id="model-info-icon">i
+            <span class="model-tooltip" id="model-tooltip">
+              <span class="tooltip-row" id="tooltip-whisper"></span>
+              <span class="tooltip-row" id="tooltip-llm"></span>
+            </span>
+          </span>
+        </span>
+        <button class="download-btn hidden" id="download-btn">Download models</button>
+        <span class="download-progress hidden" id="download-progress"></span>
+      </div>
+      <button class="update-btn">Check for updates</button>
+    </footer>
+    <script src="renderer.js"></script>
+  </body>
+</html>
