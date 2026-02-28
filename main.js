@@ -202,6 +202,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle("restart-app", (event) => {
     if (!validateSender(event.senderFrame)) return false;
+    // Mark all windows for force-close so the hide-on-close handler
+    // in window.js doesn't prevent the app from actually quitting.
+    BrowserWindow.getAllWindows().forEach((w) => {
+      w.forceClose = true;
+    });
     app.relaunch();
     app.exit(0);
     return true;

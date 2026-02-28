@@ -1,4 +1,4 @@
-const { app } = require("electron");
+const { app, BrowserWindow } = require("electron");
 
 let win = null;
 
@@ -69,6 +69,11 @@ function downloadUpdate() {
 
 function installUpdate() {
   if (!app.isPackaged) return;
+  // Mark all windows for force-close so the hide-on-close handler
+  // in window.js doesn't prevent the app from actually quitting.
+  BrowserWindow.getAllWindows().forEach((w) => {
+    w.forceClose = true;
+  });
   const { autoUpdater } = require("electron-updater");
   autoUpdater.quitAndInstall();
 }
