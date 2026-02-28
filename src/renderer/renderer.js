@@ -483,6 +483,45 @@ window.addEventListener("DOMContentLoaded", async () => {
     }, 2000);
   });
 
+  // --- System Events permission (macOS only) ---
+  const seStatus = document.getElementById("se-status");
+  const grantSeBtn = document.getElementById("grant-se-btn");
+  const seSetting = document.getElementById("system-events-setting");
+
+  function updateSeUI(granted) {
+    if (granted) {
+      seStatus.textContent = "Granted";
+      seStatus.classList.add("granted");
+      grantSeBtn.classList.add("hidden");
+    } else {
+      seStatus.textContent = "Required";
+      seStatus.classList.remove("granted");
+      grantSeBtn.classList.remove("hidden");
+    }
+  }
+
+  if (config.platform !== "darwin") {
+    seSetting.classList.add("hidden");
+  } else {
+    const seGranted = await window.vapenvibe.checkSystemEvents();
+    updateSeUI(seGranted);
+  }
+
+  let sePoll = null;
+  grantSeBtn.addEventListener("click", async () => {
+    grantSeBtn.textContent = "Waiting…";
+    await window.vapenvibe.requestSystemEvents();
+    if (sePoll) clearInterval(sePoll);
+    sePoll = setInterval(async () => {
+      const granted = await window.vapenvibe.checkSystemEvents();
+      if (granted) {
+        clearInterval(sePoll);
+        sePoll = null;
+        updateSeUI(true);
+      }
+    }, 2000);
+  });
+
   // --- Microphone dropdown ---
   try {
     const tempStream = await navigator.mediaDevices.getUserMedia({

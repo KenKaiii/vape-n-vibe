@@ -1,5 +1,9 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const { execFile } = require("node:child_process");
+const { promisify } = require("node:util");
+
+const execFileAsync = promisify(execFile);
 const {
   app,
   ipcMain,
@@ -148,6 +152,34 @@ app.whenReady().then(() => {
   ipcMain.handle("check-accessibility", (event) => {
     if (!validateSender(event.senderFrame)) return false;
     return checkAccessibility();
+  });
+
+  ipcMain.handle("check-system-events", async (event) => {
+    if (!validateSender(event.senderFrame)) return false;
+    if (process.platform !== "darwin") return true;
+    try {
+      await execFileAsync("osascript", [
+        "-e",
+        'tell application "System Events" to return ""',
+      ]);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  ipcMain.handle("request-system-events", async (event) => {
+    if (!validateSender(event.senderFrame)) return false;
+    if (process.platform !== "darwin") return true;
+    try {
+      await execFileAsync("osascript", [
+        "-e",
+        'tell application "System Events" to return ""',
+      ]);
+      return true;
+    } catch {
+      return false;
+    }
   });
 
   ipcMain.handle("check-for-updates", (event) => {

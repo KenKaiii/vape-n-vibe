@@ -37,6 +37,8 @@ contextBridge.exposeInMainWorld("vapenvibe", {
   checkAccessibility: () => ipcRenderer.invoke("check-accessibility"),
   sendVizFreq: (data) => ipcRenderer.send("viz-freq", data),
   restartApp: () => ipcRenderer.invoke("restart-app"),
+  checkSystemEvents: () => ipcRenderer.invoke("check-system-events"),
+  requestSystemEvents: () => ipcRenderer.invoke("request-system-events"),
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
   downloadUpdate: () => ipcRenderer.invoke("download-update"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
