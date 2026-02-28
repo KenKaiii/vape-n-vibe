@@ -6,6 +6,25 @@ const { getWhisperBinaryPath } = require("../config/paths");
 const execFileAsync = promisify(execFile);
 const WHISPER_CPP = getWhisperBinaryPath();
 
+// Whisper hallucinates these phrases on silence / trailing audio
+const HALLUCINATIONS = [
+  /\[BLANK_AUDIO\]/gi,
+  /\(blank audio\)/gi,
+  /\bGoodbye\.?\s*$/i,
+  /\bThank you\.?\s*$/i,
+  /\bThanks for watching\.?\s*$/i,
+  /\bPlease subscribe\.?\s*$/i,
+  /\bSee you next time\.?\s*$/i,
+];
+
+function stripHallucinations(text) {
+  let cleaned = text;
+  for (const pattern of HALLUCINATIONS) {
+    cleaned = cleaned.replace(pattern, "");
+  }
+  return cleaned.trim();
+}
+
 async function transcribe(wavPath, lang) {
   const args = [
     "-l",
@@ -24,11 +43,13 @@ async function transcribe(wavPath, lang) {
     maxBuffer: 10 * 1024 * 1024,
   });
 
-  const text = stdout
+  let text = stdout
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.length > 0)
     .join(" ");
+
+  text = stripHallucinations(text);
 
   console.log("[transcribe] result:", text);
   return text;

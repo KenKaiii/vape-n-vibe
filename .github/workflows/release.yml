@@ -87,7 +87,8 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release --target main
           cp build/bin/Release/main.exe . 2>/dev/null || cp build/bin/main.exe . 2>/dev/null || true
-          ls -la main.exe
+          cp build/bin/Release/whisper.dll . 2>/dev/null || cp build/bin/whisper.dll . 2>/dev/null || true
+          ls -la main.exe whisper.dll
 
       - name: Build Windows NSIS installer
         run: npx electron-builder --win --x64 --publish always
