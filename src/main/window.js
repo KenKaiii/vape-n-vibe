@@ -3,9 +3,17 @@ const path = require("node:path");
 const defaults = require("../config/defaults");
 
 function createWindow() {
+  const display = screen.getPrimaryDisplay();
+  const workArea = display.workArea;
+  const winWidth = defaults.window.width;
+  const winHeight = defaults.window.height;
+  const padding = 20;
+
   const win = new BrowserWindow({
-    width: defaults.window.width,
-    height: defaults.window.height,
+    width: winWidth,
+    height: winHeight,
+    x: workArea.x + workArea.width - winWidth - padding,
+    y: workArea.y + workArea.height - winHeight - padding,
     show: false,
     backgroundColor: "#000",
     icon: path.join(__dirname, "..", "..", "assets", "icon.png"),
