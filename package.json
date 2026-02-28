@@ -1,6 +1,6 @@
 {
   "name": "vape-n-vibe",
-  "version": "2.1.6",
+  "version": "2.2.0",
   "description": "Vape 'n' Vibe — push-to-talk voice transcription",
   "main": "main.js",
   "scripts": {
