@@ -130,7 +130,17 @@ window.addEventListener("DOMContentLoaded", async () => {
       modelInfo.classList.remove("hidden");
       downloadBtn.classList.add("hidden");
     } else {
-      modelInfo.classList.add("hidden");
+      const missing = [];
+      if (!config.modelExists) missing.push("Whisper");
+      if (!config.llmModelExists) missing.push("LLM");
+      downloadBtn.textContent = `Download ${missing.join(" & ")} model${missing.length > 1 ? "s" : ""}`;
+      tooltipWhisper.textContent = config.modelExists
+        ? `Whisper: ${config.model}`
+        : "Whisper: not downloaded";
+      tooltipLlm.textContent = config.llmModelExists
+        ? `LLM: ${config.llmModel}`
+        : "LLM: not downloaded";
+      modelInfo.classList.remove("hidden");
       downloadBtn.classList.remove("hidden");
     }
   }
