@@ -1,0 +1,73 @@
+name: CI Smoke Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke-mac:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile whisper.cpp binary
+        run: make -j$(sysctl -n hw.logicalcpu) main
+        working-directory: node_modules/whisper-node/lib/whisper.cpp
+
+      - name: Lint & format check
+        run: |
+          npm run lint
+          npm run format:check
+
+      - name: Build unpacked app
+        run: npx electron-builder --mac --arm64 --dir --publish never -c.mac.notarize=false
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Run smoke tests
+        run: bash scripts/smoke-test.sh mac
+
+  smoke-win:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile whisper.cpp binary
+        shell: bash
+        run: |
+          cd node_modules/whisper-node/lib/whisper.cpp
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release --target main
+          cp build/bin/Release/main.exe . 2>/dev/null || cp build/bin/main.exe . 2>/dev/null || true
+          cp build/bin/Release/whisper.dll . 2>/dev/null || cp build/bin/whisper.dll . 2>/dev/null || true
+          ls -la main.exe whisper.dll
+
+      - name: Lint & format check
+        run: |
+          npm run lint
+          npm run format:check
+
+      - name: Build unpacked app
+        run: npx electron-builder --win --x64 --dir --publish never
+
+      - name: Run smoke tests
+        shell: bash
+        run: bash scripts/smoke-test.sh win
