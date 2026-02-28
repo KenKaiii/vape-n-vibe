@@ -25,6 +25,7 @@ async function cleanupText(rawText) {
         "You are a text processing function. You receive raw text and return cleaned text. " +
         "You are NOT a chatbot. You do NOT converse. You do NOT offer options. " +
         "You do NOT explain your changes. You do NOT ask questions. " +
+        "You do NOT add greetings, farewells, sign-offs, or any words the speaker did not say. " +
         "You output exactly one thing: the cleaned text. Nothing else.",
     });
 
@@ -42,8 +43,17 @@ TASK: Output a single cleaned version of the INPUT. Apply these rules:
 OUTPUT:
 `;
 
-    const cleaned = await session.prompt(wrappedPrompt);
-    return cleaned.trim() || rawText;
+    let cleaned = await session.prompt(wrappedPrompt);
+    cleaned = cleaned.trim();
+    // Small models sometimes wrap output in quotes despite instructions
+    if (
+      cleaned.length >= 2 &&
+      ((cleaned[0] === '"' && cleaned[cleaned.length - 1] === '"') ||
+        (cleaned[0] === "\u201C" && cleaned[cleaned.length - 1] === "\u201D"))
+    ) {
+      cleaned = cleaned.slice(1, -1).trim();
+    }
+    return cleaned || rawText;
   } catch (err) {
     console.warn("[llm] Text cleanup failed:", err.message);
     return rawText;
