@@ -1,4 +1,4 @@
-const fs = require("node:fs");
+const fs = require("node:fs/promises");
 const path = require("node:path");
 const defaults = require("../config/defaults");
 const store = require("./store");
@@ -7,7 +7,7 @@ const { pasteText } = require("./paste");
 
 async function runPipeline(wavBuffer, { sendStatus, sendOverlay }) {
   const wavPath = path.join(defaults.paths.tmp, "vapenvibe-recording.wav");
-  fs.writeFileSync(wavPath, Buffer.from(wavBuffer));
+  await fs.writeFile(wavPath, Buffer.from(wavBuffer));
 
   try {
     sendOverlay("processing");
@@ -28,7 +28,7 @@ async function runPipeline(wavBuffer, { sendStatus, sendOverlay }) {
     sendOverlay("idle");
   } finally {
     try {
-      fs.unlinkSync(wavPath);
+      await fs.unlink(wavPath);
     } catch {
       // best-effort cleanup
     }

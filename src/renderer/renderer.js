@@ -1,6 +1,6 @@
 window.addEventListener("DOMContentLoaded", async () => {
   // --- Logo smoke effect ---
-  initLogoSmoke();
+  const smokeControl = initLogoSmoke();
 
   const config = await window.vapenvibe.getConfig();
 
@@ -150,12 +150,23 @@ window.addEventListener("DOMContentLoaded", async () => {
   // --- Audio recording (push-to-talk) ---
   let audioContext = null;
   let processor = null;
+  let source = null;
   let analyser = null;
   let freqData = null;
   let vizInterval = null;
   let stream = null;
   let audioChunks = [];
   let isRecording = false;
+
+  async function ensureAudioContext() {
+    if (!audioContext) {
+      audioContext = new AudioContext({ sampleRate: 16000 });
+      await audioContext.audioWorklet.addModule("audio-worklet-processor.js");
+    }
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+  }
 
   async function startRecording() {
     if (isRecording) return;
@@ -164,20 +175,17 @@ window.addEventListener("DOMContentLoaded", async () => {
     shortcutEl.classList.add("recording");
 
     const deviceId = micSelect.value;
-    audioContext = new AudioContext({ sampleRate: 16000 });
     try {
+      await ensureAudioContext();
       stream = await navigator.mediaDevices.getUserMedia({
         audio: { deviceId, channelCount: 1, sampleRate: 16000 },
       });
     } catch (err) {
-      await audioContext.close();
-      audioContext = null;
       isRecording = false;
       shortcutEl.classList.remove("recording");
       throw err;
     }
-    const source = audioContext.createMediaStreamSource(stream);
-    audioContext._source = source; // store reference for cleanup
+    source = audioContext.createMediaStreamSource(stream);
 
     // Set up analyser for overlay visualizer
     analyser = audioContext.createAnalyser();
@@ -189,11 +197,10 @@ window.addEventListener("DOMContentLoaded", async () => {
     vizInterval = setInterval(() => {
       if (analyser && freqData) {
         analyser.getByteFrequencyData(freqData);
-        window.vapenvibe.sendVizFreq(Array.from(freqData));
+        window.vapenvibe.sendVizFreq(new Uint8Array(freqData));
       }
     }, 33);
 
-    await audioContext.audioWorklet.addModule("audio-worklet-processor.js");
     processor = new AudioWorkletNode(audioContext, "recorder-processor");
     processor.port.onmessage = (e) => {
       if (isRecording) {
@@ -203,7 +210,6 @@ window.addEventListener("DOMContentLoaded", async () => {
     processor.port.postMessage("start");
 
     source.connect(processor);
-    processor.connect(audioContext.destination);
   }
 
   async function stopRecording() {
@@ -219,12 +225,19 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (processor) {
       processor.port.postMessage("stop");
       processor.disconnect();
+      processor = null;
     }
-    if (audioContext && audioContext._source) audioContext._source.disconnect();
-    if (stream) stream.getTracks().forEach((t) => t.stop());
+    if (source) {
+      source.disconnect();
+      source = null;
+    }
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      stream = null;
+    }
     analyser = null;
     freqData = null;
-    if (audioContext) await audioContext.close();
+    if (audioContext) await audioContext.suspend();
 
     if (audioChunks.length === 0) return;
 
@@ -503,6 +516,23 @@ window.addEventListener("DOMContentLoaded", async () => {
     }, 2000);
   });
 
+  // --- Pause work when window is hidden ---
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      smokeControl.pause();
+      if (accessPoll) {
+        clearInterval(accessPoll);
+        accessPoll = null;
+      }
+      if (sePoll) {
+        clearInterval(sePoll);
+        sePoll = null;
+      }
+    } else {
+      smokeControl.resume();
+    }
+  });
+
   // --- Microphone dropdown ---
   try {
     const tempStream = await navigator.mediaDevices.getUserMedia({
@@ -530,13 +560,28 @@ function initLogoSmoke() {
   const turb = document.getElementById("smoke-turbulence");
   let frame = 0;
   const rad = Math.PI / 180;
+  let smokeRafId = null;
 
   function animateTurbulence() {
     frame += 0.15;
     const bfx = 0.02 + 0.004 * Math.cos(frame * rad);
     const bfy = 0.02 + 0.004 * Math.sin(frame * rad * 0.7);
     turb.setAttribute("baseFrequency", `${bfx} ${bfy}`);
-    requestAnimationFrame(animateTurbulence);
+    smokeRafId = requestAnimationFrame(animateTurbulence);
   }
-  requestAnimationFrame(animateTurbulence);
+  smokeRafId = requestAnimationFrame(animateTurbulence);
+
+  return {
+    pause() {
+      if (smokeRafId !== null) {
+        cancelAnimationFrame(smokeRafId);
+        smokeRafId = null;
+      }
+    },
+    resume() {
+      if (smokeRafId === null) {
+        smokeRafId = requestAnimationFrame(animateTurbulence);
+      }
+    },
+  };
 }

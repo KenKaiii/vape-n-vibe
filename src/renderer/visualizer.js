@@ -11,6 +11,7 @@ let smoothBars = new Float32Array(barCount);
 let fadeAlpha = 0;
 let targetAlpha = 0;
 let smokeTime = 0;
+let loopRunning = false;
 
 // --- Smoke particle system ---
 const smokeParticles = [];
@@ -34,13 +35,20 @@ function createSmokeParticle() {
   };
 }
 
+function startLoop() {
+  if (!loopRunning) {
+    loopRunning = true;
+    requestAnimationFrame(draw);
+  }
+}
+
 function draw() {
   // Smooth fade
   fadeAlpha += (targetAlpha - fadeAlpha) * 0.15;
   if (fadeAlpha < 0.01 && targetAlpha === 0) {
     fadeAlpha = 0;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    requestAnimationFrame(draw);
+    loopRunning = false;
     return;
   }
 
@@ -189,11 +197,11 @@ window.vizBridge.onVizMode((newMode) => {
       smokeTime = 0;
     }
   }
+  startLoop();
 });
 
 window.vizBridge.onVizFreq((data) => {
   freqData = data;
 });
 
-// Start render loop
-requestAnimationFrame(draw);
+// Loop starts on first mode change via startLoop()

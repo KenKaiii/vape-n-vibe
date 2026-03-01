@@ -37,9 +37,9 @@ app.whenReady().then(() => {
   windows.overlay = createOverlay();
 
   registerIpcHandlers(windows);
-  initUpdater(windows.main);
+  initUpdater(windows);
 
-  createTray(windows);
+  windows.tray = createTray(windows);
 
   // Register push-to-talk hotkey
   const hotkey = store.get("hotkey");

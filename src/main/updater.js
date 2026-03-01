@@ -1,15 +1,16 @@
 const { app, BrowserWindow } = require("electron");
 
-let win = null;
+let windows = null;
 
 function send(data) {
+  const win = windows && windows.main;
   if (win && !win.isDestroyed()) {
     win.webContents.send("update-status", data);
   }
 }
 
-function initUpdater(mainWindow) {
-  win = mainWindow;
+function initUpdater(appWindows) {
+  windows = appWindows;
 
   if (!app.isPackaged) {
     console.log("[updater] Skipping — not packaged");
