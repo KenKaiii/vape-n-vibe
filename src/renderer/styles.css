@@ -325,13 +325,37 @@ footer {
   color: #5de075;
 }
 
-.access-status {
-  font-size: 12px;
-  color: #666;
+.setting-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.access-status.granted {
+.setting-btn {
+  background: none;
+  border: 1px solid #555;
+  color: #fff;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.setting-btn:hover {
+  border-color: #888;
+}
+
+.status-badge {
+  font-size: 11px;
+  color: #666;
+  border: 1px solid #333;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.status-badge.granted {
   color: #4cd964;
+  border-color: #2a5e30;
 }
 
 .version-badge {
@@ -373,4 +397,117 @@ footer {
 .update-btn:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.dictionary-count {
+  font-size: 11px;
+  color: #555;
+  margin-right: 4px;
+}
+
+.dictionary-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.dictionary-panel {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 10px;
+  width: 320px;
+  max-height: 360px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dictionary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid #333;
+}
+
+.dictionary-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+}
+
+.dictionary-add {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #282828;
+}
+
+.dictionary-add input {
+  flex: 1;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  padding: 5px 8px;
+  outline: none;
+}
+
+.dictionary-add input:focus {
+  border-color: #555;
+}
+
+.dictionary-add-btn {
+  background: none;
+  border: 1px solid #555;
+  color: #fff;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.dictionary-add-btn:hover {
+  border-color: #888;
+}
+
+.dictionary-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 4px 0;
+}
+
+.dictionary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px;
+}
+
+.dictionary-row:hover {
+  background: #222;
+}
+
+.dictionary-word {
+  font-size: 12px;
+  color: #ccc;
+}
+
+.dictionary-delete-btn {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.dictionary-delete-btn:hover {
+  color: #f44;
 }

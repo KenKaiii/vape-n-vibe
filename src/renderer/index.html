@@ -90,15 +90,24 @@
           <option value="uk">Ukrainian</option>
         </select>
       </div>
+      <div class="setting">
+        <label class="setting-label">Dictionary</label>
+        <div class="setting-right">
+          <span class="dictionary-count" id="dictionary-count"></span>
+          <button class="setting-btn" id="dictionary-btn">Edit</button>
+        </div>
+      </div>
       <div class="setting" id="accessibility-setting">
         <label class="setting-label">Accessibility</label>
-        <span class="access-status" id="access-status">Checking…</span>
-        <button class="change-btn hidden" id="grant-access-btn">Grant</button>
+        <span class="status-badge granted hidden" id="access-status"
+          >Granted</span
+        >
+        <button class="setting-btn hidden" id="grant-access-btn">Grant</button>
       </div>
       <div class="setting" id="system-events-setting">
         <label class="setting-label">System Events</label>
-        <span class="access-status" id="se-status">Checking…</span>
-        <button class="change-btn hidden" id="grant-se-btn">Grant</button>
+        <span class="status-badge granted hidden" id="se-status">Granted</span>
+        <button class="setting-btn hidden" id="grant-se-btn">Grant</button>
       </div>
     </main>
     <footer>
@@ -124,6 +133,21 @@
         <button class="update-btn" id="update-btn">Check for updates</button>
       </div>
     </footer>
+    <div class="dictionary-modal hidden" id="dictionary-modal">
+      <div class="dictionary-panel">
+        <div class="dictionary-header">
+          <span class="dictionary-title">Dictionary</span>
+          <button class="change-btn" id="dictionary-close">Done</button>
+        </div>
+        <div class="dictionary-add">
+          <input type="text" id="dictionary-input" placeholder="Add a word…" />
+          <button class="dictionary-add-btn" id="dictionary-add-btn">
+            Add
+          </button>
+        </div>
+        <div class="dictionary-list" id="dictionary-list"></div>
+      </div>
+    </div>
     <script src="renderer.js"></script>
   </body>
 </html>

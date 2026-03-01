@@ -147,6 +147,85 @@ window.addEventListener("DOMContentLoaded", async () => {
     console.error("Download error:", msg);
   });
 
+  // --- Dictionary modal ---
+  const dictionaryBtn = document.getElementById("dictionary-btn");
+  const dictionaryModal = document.getElementById("dictionary-modal");
+  const dictionaryClose = document.getElementById("dictionary-close");
+  const dictionaryInput = document.getElementById("dictionary-input");
+  const dictionaryAddBtn = document.getElementById("dictionary-add-btn");
+  const dictionaryList = document.getElementById("dictionary-list");
+  const dictionaryCount = document.getElementById("dictionary-count");
+  let dictionaryWords = [];
+
+  function updateDictionaryCount() {
+    const n = dictionaryWords.length;
+    dictionaryCount.textContent = n > 0 ? `${n} word${n === 1 ? "" : "s"}` : "";
+  }
+
+  function renderDictionaryList() {
+    updateDictionaryCount();
+    dictionaryList.innerHTML = "";
+    dictionaryWords.forEach((word, i) => {
+      const row = document.createElement("div");
+      row.className = "dictionary-row";
+      const span = document.createElement("span");
+      span.className = "dictionary-word";
+      span.textContent = word;
+      const del = document.createElement("button");
+      del.className = "dictionary-delete-btn";
+      del.textContent = "\u00d7";
+      del.addEventListener("click", () => {
+        dictionaryWords.splice(i, 1);
+        window.vapenvibe.setDictionary(dictionaryWords);
+        renderDictionaryList();
+      });
+      row.appendChild(span);
+      row.appendChild(del);
+      dictionaryList.appendChild(row);
+    });
+  }
+
+  function addDictionaryWord() {
+    const word = dictionaryInput.value.trim();
+    if (!word || /[\s,]/.test(word) || dictionaryWords.includes(word)) {
+      dictionaryInput.value = "";
+      return;
+    }
+    dictionaryWords.push(word);
+    window.vapenvibe.setDictionary(dictionaryWords);
+    dictionaryInput.value = "";
+    renderDictionaryList();
+  }
+
+  // Load count on startup
+  window.vapenvibe.getDictionary().then((words) => {
+    dictionaryWords = words || [];
+    updateDictionaryCount();
+  });
+
+  dictionaryBtn.addEventListener("click", async () => {
+    dictionaryWords = (await window.vapenvibe.getDictionary()) || [];
+    renderDictionaryList();
+    dictionaryModal.classList.remove("hidden");
+    dictionaryInput.focus();
+  });
+
+  dictionaryClose.addEventListener("click", () => {
+    dictionaryModal.classList.add("hidden");
+  });
+
+  dictionaryAddBtn.addEventListener("click", addDictionaryWord);
+
+  dictionaryInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addDictionaryWord();
+    }
+    if (e.key === " " || e.key === ",") {
+      e.preventDefault();
+    }
+  });
+
   // --- Audio recording (push-to-talk) ---
   let audioContext = null;
   let processor = null;
@@ -440,20 +519,17 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   function updateAccessUI(granted) {
     if (granted) {
-      accessStatus.textContent = "Granted";
-      accessStatus.classList.add("granted");
+      accessStatus.classList.remove("hidden");
       grantAccessBtn.classList.add("hidden");
     } else {
-      accessStatus.textContent = "Required";
-      accessStatus.classList.remove("granted");
+      accessStatus.classList.add("hidden");
       grantAccessBtn.classList.remove("hidden");
     }
   }
 
   // Hide accessibility row on non-macOS platforms
   if (config.platform !== "darwin") {
-    const accessRow =
-      accessStatus.closest(".row") || accessStatus.parentElement;
+    const accessRow = accessStatus.parentElement;
     if (accessRow) accessRow.classList.add("hidden");
   }
 
@@ -484,12 +560,10 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   function updateSeUI(granted) {
     if (granted) {
-      seStatus.textContent = "Granted";
-      seStatus.classList.add("granted");
+      seStatus.classList.remove("hidden");
       grantSeBtn.classList.add("hidden");
     } else {
-      seStatus.textContent = "Required";
-      seStatus.classList.remove("granted");
+      seStatus.classList.add("hidden");
       grantSeBtn.classList.remove("hidden");
     }
   }

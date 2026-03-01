@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld("vapenvibe", {
   requestAccessibility: () => ipcRenderer.invoke("request-accessibility"),
   checkAccessibility: () => ipcRenderer.invoke("check-accessibility"),
   sendVizFreq: (data) => ipcRenderer.send("viz-freq", data),
+  getDictionary: () => ipcRenderer.invoke("get-dictionary"),
+  setDictionary: (words) => ipcRenderer.invoke("set-dictionary", words),
   restartApp: () => ipcRenderer.invoke("restart-app"),
   checkSystemEvents: () => ipcRenderer.invoke("check-system-events"),
   requestSystemEvents: () => ipcRenderer.invoke("request-system-events"),

@@ -139,6 +139,21 @@ function registerIpcHandlers(windows) {
     return true;
   });
 
+  ipcMain.handle("get-dictionary", (event) => {
+    if (!validateSender(event.senderFrame)) return [];
+    return store.get("dictionaryWords");
+  });
+
+  ipcMain.handle("set-dictionary", (event, words) => {
+    if (!validateSender(event.senderFrame)) return false;
+    if (!Array.isArray(words)) return false;
+    const clean = words.filter(
+      (w) => typeof w === "string" && w.trim() && !/[\s,]/.test(w),
+    );
+    store.set("dictionaryWords", clean);
+    return true;
+  });
+
   ipcMain.handle("restart-app", (event) => {
     if (!validateSender(event.senderFrame)) return false;
     BrowserWindow.getAllWindows().forEach((w) => {
