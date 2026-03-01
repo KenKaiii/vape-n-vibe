@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/KenKaiii/vape-n-vibe/releases/latest"><img src="https://img.shields.io/github/v/release/KenKaiii/vape-n-vibe?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-ISC-blue.svg?style=for-the-badge" alt="ISC License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL%20v3-blue.svg?style=for-the-badge" alt="GPL v3 License"></a>
   <a href="https://youtube.com/@kenkaidoesai"><img src="https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="YouTube"></a>
   <a href="https://skool.com/kenkai"><img src="https://img.shields.io/badge/Skool-Community-7C3AED?style=for-the-badge" alt="Skool"></a>
 </p>
@@ -122,7 +122,7 @@ npm run build:win # build for Windows
 
 ## License
 
-ISC
+GPL-3.0
 
 ---
 
