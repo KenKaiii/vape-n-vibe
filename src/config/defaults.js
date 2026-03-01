@@ -25,8 +25,8 @@ const defaults = {
     muteWhileRecording: true,
   },
 
-  // Hotkey
-  hotkey: "fn",
+  // Hotkey — fn on macOS, Ctrl+Space on Windows/Linux
+  hotkey: process.platform === "darwin" ? "fn" : "Ctrl+Space",
 
   // Paste method — uses CMD+V on mac, CTRL+V on windows/linux
   paste: {

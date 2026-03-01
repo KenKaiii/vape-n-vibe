@@ -141,6 +141,15 @@ APP_PID=$!
 sleep 15
 if kill -0 "$APP_PID" 2>/dev/null; then
   kill_app "$APP_PID"
+  # Wait up to 10s for process to exit, then force kill
+  for i in $(seq 1 10); do
+    kill -0 "$APP_PID" 2>/dev/null || break
+    sleep 1
+  done
+  # If still alive, force SIGKILL (unix) or accept it's done (win)
+  if kill -0 "$APP_PID" 2>/dev/null; then
+    kill -9 "$APP_PID" 2>/dev/null || true
+  fi
   wait "$APP_PID" 2>/dev/null || true
   pass "App launches and survives 15s"
 else

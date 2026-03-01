@@ -1,8 +1,10 @@
 const Store = require("electron-store");
 
+const defaults = require("../config/defaults");
+
 const store = new Store({
   defaults: {
-    hotkey: "fn",
+    hotkey: defaults.hotkey,
     language: "auto",
     cleanupEnabled: false,
   },
