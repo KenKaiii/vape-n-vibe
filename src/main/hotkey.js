@@ -12,6 +12,7 @@ try {
 
 // --- uiohook key mapping ---
 const KEY_MAP = {
+  // Letters
   A: UiohookKey.A,
   B: UiohookKey.B,
   C: UiohookKey.C,
@@ -38,9 +39,34 @@ const KEY_MAP = {
   X: UiohookKey.X,
   Y: UiohookKey.Y,
   Z: UiohookKey.Z,
+  // Numbers
+  0: UiohookKey[0],
+  1: UiohookKey[1],
+  2: UiohookKey[2],
+  3: UiohookKey[3],
+  4: UiohookKey[4],
+  5: UiohookKey[5],
+  6: UiohookKey[6],
+  7: UiohookKey[7],
+  8: UiohookKey[8],
+  9: UiohookKey[9],
+  // Symbols (names match what the renderer's physicalKey() returns)
+  "`": UiohookKey.Backquote,
+  "-": UiohookKey.Minus,
+  "=": UiohookKey.Equal,
+  "[": UiohookKey.BracketLeft,
+  "]": UiohookKey.BracketRight,
+  "\\": UiohookKey.Backslash,
+  ";": UiohookKey.Semicolon,
+  "'": UiohookKey.Quote,
+  ",": UiohookKey.Comma,
+  ".": UiohookKey.Period,
+  "/": UiohookKey.Slash,
+  // Special keys
   Space: UiohookKey.Space,
   Enter: UiohookKey.Enter,
   Tab: UiohookKey.Tab,
+  // Function keys
   F1: UiohookKey.F1,
   F2: UiohookKey.F2,
   F3: UiohookKey.F3,
