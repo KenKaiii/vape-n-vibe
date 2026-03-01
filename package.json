@@ -51,6 +51,7 @@
       "build/Release/*.node"
     ],
     "mac": {
+      "artifactName": "vape-n-vibe.${ext}",
       "category": "public.app-category.productivity",
       "icon": "assets/icon.icns",
       "target": [
@@ -77,6 +78,7 @@
       ]
     },
     "dmg": {
+      "artifactName": "vape-n-vibe.${ext}",
       "contents": [
         {
           "x": 130,
@@ -102,6 +104,7 @@
       ]
     },
     "nsis": {
+      "artifactName": "vape-n-vibe-setup.${ext}",
       "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false

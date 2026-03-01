@@ -62,10 +62,10 @@ Ships with auto-update support via GitHub releases. You'll get notified when a n
 
 ### Download
 
-| Platform | Architecture                | Link                                                                |
-| -------- | --------------------------- | ------------------------------------------------------------------- |
-| macOS    | Apple Silicon (M1/M2/M3/M4) | [Download](https://github.com/KenKaiii/vape-n-vibe/releases/latest) |
-| Windows  | x64                         | [Download](https://github.com/KenKaiii/vape-n-vibe/releases/latest) |
+| Platform | Architecture                | Link                                                                                               |
+| -------- | --------------------------- | -------------------------------------------------------------------------------------------------- |
+| macOS    | Apple Silicon (M1/M2/M3/M4) | [Download](https://github.com/KenKaiii/vape-n-vibe/releases/latest/download/vape-n-vibe.dmg)       |
+| Windows  | x64                         | [Download](https://github.com/KenKaiii/vape-n-vibe/releases/latest/download/vape-n-vibe-setup.exe) |
 
 ### Setup
 
