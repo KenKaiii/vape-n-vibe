@@ -30,24 +30,30 @@ Press a hotkey, talk, let go. The transcription shows up wherever your cursor is
 ## What it does
 
 ### Push-to-talk transcription
+
 Hold your hotkey (fn on Mac, Ctrl+Space on Windows), speak, release. Whisper transcribes your audio and the text is pasted into the focused app automatically. No app switching, no copy-paste.
 
 ### Runs entirely on your machine
+
 Uses whisper-large-v3-turbo (quantized) for fast, accurate transcription. No internet connection needed after the one-time model download. No API keys. No accounts.
 
 ### Works with any app
+
 The transcribed text goes straight to your clipboard and gets pasted into whatever's focused. Text editor, browser, Slack, terminal, anything.
 
 ### Visual feedback
+
 A transparent overlay shows you when it's recording with a real-time frequency visualizer. Unobtrusive, always-on-top, click-through.
 
 ### Configurable
+
 - Rebind the hotkey to any key
 - Pick your microphone
 - Choose transcription language or let it auto-detect
 - Mute system audio during recording to avoid feedback
 
 ### Auto-updates
+
 Ships with auto-update support via GitHub releases. You'll get notified when a new version is available.
 
 ---
@@ -56,10 +62,10 @@ Ships with auto-update support via GitHub releases. You'll get notified when a n
 
 ### Download
 
-| Platform | Architecture | Link |
-|----------|-------------|------|
-| macOS | Apple Silicon (M1/M2/M3/M4) | [Download](https://github.com/KenKaiii/vape-n-vibe/releases/latest) |
-| Windows | x64 | [Download](https://github.com/KenKaiii/vape-n-vibe/releases/latest) |
+| Platform | Architecture                | Link                                                                |
+| -------- | --------------------------- | ------------------------------------------------------------------- |
+| macOS    | Apple Silicon (M1/M2/M3/M4) | [Download](https://github.com/KenKaiii/vape-n-vibe/releases/latest) |
+| Windows  | x64                         | [Download](https://github.com/KenKaiii/vape-n-vibe/releases/latest) |
 
 ### Setup
 
