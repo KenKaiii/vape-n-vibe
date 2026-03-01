@@ -47,7 +47,6 @@
     "asarUnpack": [
       "node_modules/whisper-node/**",
       "node_modules/uiohook-napi/**",
-      "node_modules/node-llama-cpp/**",
       "build/Release/*.node"
     ],
     "mac": {
@@ -125,7 +124,6 @@
     "electron-store": "^8.2.0",
     "electron-updater": "^6.6.2",
     "node-addon-api": "^8.5.0",
-    "node-llama-cpp": "^3.16.2",
     "uiohook-napi": "^1.5.4",
     "whisper-node": "^1.1.1"
   }

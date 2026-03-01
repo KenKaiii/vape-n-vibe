@@ -20,8 +20,6 @@ contextBridge.exposeInMainWorld("vapenvibe", {
     ipcRenderer.on("downloads-error", handler);
     return () => ipcRenderer.removeListener("downloads-error", handler);
   },
-  toggleCleanup: (enabled) => ipcRenderer.invoke("toggle-cleanup", enabled),
-  cleanupText: (text) => ipcRenderer.invoke("cleanup-text", text),
   onRecordingToggle: (cb) => {
     const handler = (_e, on) => cb(on);
     ipcRenderer.on("recording-toggle", handler);

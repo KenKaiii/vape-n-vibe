@@ -8,10 +8,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   const changeBtn = document.getElementById("change-hotkey");
   const modelInfo = document.getElementById("model-info");
   const tooltipWhisper = document.getElementById("tooltip-whisper");
-  const tooltipLlm = document.getElementById("tooltip-llm");
   const downloadBtn = document.getElementById("download-btn");
   const downloadProgress = document.getElementById("download-progress");
-  const cleanupToggle = document.getElementById("cleanup-toggle");
   const micSelect = document.getElementById("mic-select");
   const langSelect = document.getElementById("lang-select");
   const updateBtn = document.getElementById("update-btn");
@@ -105,41 +103,17 @@ window.addEventListener("DOMContentLoaded", async () => {
     window.vapenvibe.restartApp();
   });
 
-  // --- Cleanup toggle state ---
-  let cleanupEnabled = config.cleanupEnabled;
-
-  function updateCleanupUI() {
-    cleanupToggle.classList.toggle("active", cleanupEnabled);
-  }
-
-  updateCleanupUI();
-
-  cleanupToggle.addEventListener("click", async () => {
-    cleanupEnabled = !cleanupEnabled;
-    await window.vapenvibe.toggleCleanup(cleanupEnabled);
-    updateCleanupUI();
-  });
-
   // --- Model state ---
-  let modelsReady = config.modelExists && config.llmModelExists;
+  let modelsReady = config.modelExists;
 
   function updateFooter() {
     if (modelsReady) {
       tooltipWhisper.textContent = `Whisper: ${config.model}`;
-      tooltipLlm.textContent = `LLM: ${config.llmModel}`;
       modelInfo.classList.remove("hidden");
       downloadBtn.classList.add("hidden");
     } else {
-      const missing = [];
-      if (!config.modelExists) missing.push("Whisper");
-      if (!config.llmModelExists) missing.push("LLM");
-      downloadBtn.textContent = `Download ${missing.join(" & ")} model${missing.length > 1 ? "s" : ""}`;
-      tooltipWhisper.textContent = config.modelExists
-        ? `Whisper: ${config.model}`
-        : "Whisper: not downloaded";
-      tooltipLlm.textContent = config.llmModelExists
-        ? `LLM: ${config.llmModel}`
-        : "LLM: not downloaded";
+      downloadBtn.textContent = "Download Whisper model";
+      tooltipWhisper.textContent = "Whisper: not downloaded";
       modelInfo.classList.remove("hidden");
       downloadBtn.classList.remove("hidden");
     }
@@ -318,9 +292,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   window.vapenvibe.onTranscriptionStatus((status) => {
     if (status === "transcribing") {
       shortcutEl.textContent = "Transcribing\u2026";
-      shortcutEl.classList.add("listening");
-    } else if (status === "cleaning") {
-      shortcutEl.textContent = "Cleaning\u2026";
       shortcutEl.classList.add("listening");
     } else {
       shortcutEl.textContent = displayHotkey(config.hotkey);

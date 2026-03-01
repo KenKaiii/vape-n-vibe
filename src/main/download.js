@@ -66,61 +66,25 @@ async function downloadFile(url, destPath, onProgress, expectedHash) {
 }
 
 async function downloadModels(win) {
-  const needWhisper = !fs.existsSync(defaults.model.path);
-  const needLlm = !fs.existsSync(defaults.llm.path);
-
-  if (!needWhisper && !needLlm) {
+  if (fs.existsSync(defaults.model.path)) {
     win.webContents.send("downloads-complete");
     return;
   }
 
-  const state = { whisper: 0, llm: 0, whisperTotal: 0, llmTotal: 0 };
-
-  function sendProgress() {
-    const downloaded = state.whisper + state.llm;
-    const total = state.whisperTotal + state.llmTotal;
-    if (total > 0) {
-      win.webContents.send(
-        "downloads-progress",
-        Math.round((downloaded / total) * 100),
-      );
-    }
-  }
-
-  const jobs = [];
-
-  if (needWhisper) {
-    jobs.push(
-      downloadFile(
-        defaults.model.url,
-        defaults.model.path,
-        (dl, total) => {
-          state.whisper = dl;
-          state.whisperTotal = total;
-          sendProgress();
-        },
-        defaults.model.sha256,
-      ),
-    );
-  }
-
-  if (needLlm) {
-    jobs.push(
-      downloadFile(
-        defaults.llm.url,
-        defaults.llm.path,
-        (dl, total) => {
-          state.llm = dl;
-          state.llmTotal = total;
-          sendProgress();
-        },
-        defaults.llm.sha256,
-      ),
-    );
-  }
-
   try {
-    await Promise.all(jobs);
+    await downloadFile(
+      defaults.model.url,
+      defaults.model.path,
+      (dl, total) => {
+        if (total > 0) {
+          win.webContents.send(
+            "downloads-progress",
+            Math.round((dl / total) * 100),
+          );
+        }
+      },
+      defaults.model.sha256,
+    );
     win.webContents.send("downloads-complete");
   } catch (err) {
     win.webContents.send("downloads-error", err.message);

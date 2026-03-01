@@ -52,6 +52,9 @@ function checkForUpdates() {
     return;
   }
   const { autoUpdater } = require("electron-updater");
+  // Force electron-updater to create a fresh HTTP client on each check,
+  // bypassing GitHub CDN caching of the releases Atom feed.
+  autoUpdater.clientPromise = null;
   autoUpdater.checkForUpdates().catch((err) => {
     console.error("[updater] Check error:", err.message);
     send({ state: "error" });

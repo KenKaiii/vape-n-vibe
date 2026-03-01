@@ -35,14 +35,6 @@ const defaults = {
     linux: "Control+V",
   },
 
-  // LLM (text cleanup)
-  llm: {
-    name: "Qwen3-4B-Instruct-2507-Q4_K_M",
-    file: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
-    url: "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
-    sha256: null,
-  },
-
   // Paths — resolved lazily via resolveModelPaths() after app.whenReady()
   paths: {
     models: null,
@@ -54,7 +46,6 @@ const defaults = {
     const { getModelsDir } = require("./paths");
     defaults.paths.models = getModelsDir();
     defaults.model.path = path.join(defaults.paths.models, defaults.model.file);
-    defaults.llm.path = path.join(defaults.paths.models, defaults.llm.file);
   },
 };
 

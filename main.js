@@ -1,10 +1,7 @@
-const fs = require("node:fs");
 const path = require("node:path");
 const { app, BrowserWindow } = require("electron");
 const { createWindow, createOverlay } = require("./src/main/window");
 const defaults = require("./src/config/defaults");
-const store = require("./src/main/store");
-const { initModel } = require("./src/main/llm");
 const { registerHotkey, stopHotkey } = require("./src/main/hotkey");
 const { muteSystem, unmuteSystem } = require("./src/main/audio-control");
 const { initUpdater } = require("./src/main/updater");
@@ -14,6 +11,7 @@ const {
   sendToOverlay,
 } = require("./src/main/ipc");
 const { createTray } = require("./src/main/tray");
+const store = require("./src/main/store");
 
 // --- Global error handlers ---
 process.on("unhandledRejection", (reason) => {
@@ -40,13 +38,6 @@ app.whenReady().then(() => {
 
   registerIpcHandlers(windows);
   initUpdater(windows.main);
-
-  // Auto-init LLM if cleanup is enabled and model exists
-  if (store.get("cleanupEnabled") && fs.existsSync(defaults.llm.path)) {
-    initModel(defaults.llm.path).catch((err) => {
-      console.error("[main] LLM init error:", err);
-    });
-  }
 
   createTray(windows);
 

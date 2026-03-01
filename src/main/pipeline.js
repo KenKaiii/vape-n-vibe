@@ -3,7 +3,6 @@ const path = require("node:path");
 const defaults = require("../config/defaults");
 const store = require("./store");
 const { transcribe } = require("./transcribe");
-const { cleanupText } = require("./llm");
 const { pasteText } = require("./paste");
 
 async function runPipeline(wavBuffer, { sendStatus, sendOverlay }) {
@@ -16,12 +15,6 @@ async function runPipeline(wavBuffer, { sendStatus, sendOverlay }) {
     console.log("[pipeline] Transcribing audio...");
     let text = await transcribe(wavPath, store.get("language"));
     console.log("[pipeline] Transcription result:", text);
-
-    if (text && store.get("cleanupEnabled")) {
-      sendStatus("cleaning");
-      text = await cleanupText(text);
-      console.log("[pipeline] Cleaned text:", JSON.stringify(text));
-    }
 
     sendStatus("idle");
     sendOverlay("idle");

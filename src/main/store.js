@@ -6,7 +6,6 @@ const store = new Store({
   defaults: {
     hotkey: defaults.hotkey,
     language: "auto",
-    cleanupEnabled: false,
   },
 });
 

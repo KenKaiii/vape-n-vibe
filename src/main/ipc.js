@@ -5,7 +5,6 @@ const { app, ipcMain, BrowserWindow } = require("electron");
 const defaults = require("../config/defaults");
 const store = require("./store");
 const { downloadModels } = require("./download");
-const { initModel, cleanupText, disposeModel } = require("./llm");
 const {
   updateHotkey,
   checkAccessibility,
@@ -51,9 +50,6 @@ function registerIpcHandlers(windows) {
       model: defaults.model.name,
       hotkey: store.get("hotkey"),
       modelExists: fs.existsSync(defaults.model.path),
-      cleanupEnabled: store.get("cleanupEnabled"),
-      llmModel: defaults.llm.name,
-      llmModelExists: fs.existsSync(defaults.llm.path),
       accessibilityGranted: checkAccessibility(),
       platform: process.platform,
       language: store.get("language"),
@@ -81,29 +77,6 @@ function registerIpcHandlers(windows) {
       console.error("[main] Download error:", err);
     });
     return true;
-  });
-
-  ipcMain.handle("toggle-cleanup", async (event, enabled) => {
-    if (!validateSender(event.senderFrame)) return false;
-    store.set("cleanupEnabled", enabled);
-    try {
-      if (enabled && fs.existsSync(defaults.llm.path)) {
-        await initModel(defaults.llm.path);
-      } else if (!enabled) {
-        await disposeModel();
-      }
-    } catch (err) {
-      console.error("[main] LLM toggle error:", err);
-      store.set("cleanupEnabled", false);
-      return false;
-    }
-    return true;
-  });
-
-  ipcMain.handle("cleanup-text", async (event, text) => {
-    if (!validateSender(event.senderFrame)) return text;
-    if (!store.get("cleanupEnabled")) return text;
-    return await cleanupText(text);
   });
 
   ipcMain.handle("request-accessibility", (event) => {

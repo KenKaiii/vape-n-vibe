@@ -107,15 +107,7 @@ if [[ "$PLATFORM" == "mac" ]]; then
   fi
 fi
 
-# 6. llama-addon.node in unpacked modules
-LLAMA_ADDON=$(find "$UNPACKED" -name "llama-addon.node" 2>/dev/null | head -1)
-if [[ -n "$LLAMA_ADDON" ]]; then
-  pass "llama-addon.node found"
-else
-  fail "llama-addon.node not found in $UNPACKED"
-fi
-
-# 7. uiohook-napi .node exists
+# 6. uiohook-napi .node exists
 UIOHOOK_ADDON=$(find "$UNPACKED" -name "*.node" -path "*/uiohook*" 2>/dev/null | head -1)
 if [[ -n "$UIOHOOK_ADDON" ]]; then
   pass "uiohook-napi .node found"
