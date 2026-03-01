@@ -46,20 +46,20 @@ app.whenReady().then(() => {
   console.log("[main] Setting up hotkey:", hotkey);
 
   registerHotkey(hotkey, {
-    onDown: () => {
+    onDown: async () => {
       if (recording) return;
       recording = true;
       console.log("[main] Recording started");
-      if (defaults.recording.muteWhileRecording) muteSystem();
+      if (defaults.recording.muteWhileRecording) await muteSystem();
       sendToOverlay("viz-mode", "recording");
       const win = getWin();
       if (win) win.webContents.send("recording-toggle", true);
     },
-    onUp: () => {
+    onUp: async () => {
       if (!recording) return;
       recording = false;
       console.log("[main] Recording stopped");
-      if (defaults.recording.muteWhileRecording) unmuteSystem();
+      if (defaults.recording.muteWhileRecording) await unmuteSystem();
       const win = getWin();
       if (win) {
         win.webContents.send("recording-toggle", false);
