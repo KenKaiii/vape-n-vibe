@@ -171,4 +171,4 @@ function registerIpcHandlers(windows) {
   });
 }
 
-module.exports = { registerIpcHandlers, getWin, sendToOverlay };
+module.exports = { registerIpcHandlers, getWin, sendToOverlay, validateSender };

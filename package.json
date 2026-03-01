@@ -15,7 +15,8 @@
     "build:mac": "electron-builder --mac --publish never",
     "build:win": "electron-builder --win --publish never",
     "build:dir": "electron-builder --dir --publish never",
-    "dist": "electron-builder --publish always"
+    "dist": "electron-builder --publish always",
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -118,7 +119,8 @@
     "eslint": "^10.0.2",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.3.0",
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.1",
+    "vitest": "^2.1.9"
   },
   "dependencies": {
     "electron-store": "^8.2.0",

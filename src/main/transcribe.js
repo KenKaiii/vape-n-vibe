@@ -24,14 +24,18 @@ async function transcribe(wavPath, lang) {
     maxBuffer: 10 * 1024 * 1024,
   });
 
-  const text = stdout
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0)
-    .join(" ");
+  const text = parseOutput(stdout);
 
   console.log("[transcribe] result:", text);
   return text;
 }
 
-module.exports = { transcribe };
+function parseOutput(stdout) {
+  return stdout
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .join(" ");
+}
+
+module.exports = { transcribe, parseOutput };

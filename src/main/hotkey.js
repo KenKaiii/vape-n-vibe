@@ -308,4 +308,8 @@ module.exports = {
   stopHotkey,
   checkAccessibility,
   requestAccessibility,
+  parseHotkey,
+  matchesDown,
+  matchesUp,
+  toAccelerator,
 };

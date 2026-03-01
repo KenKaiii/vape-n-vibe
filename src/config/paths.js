@@ -1,7 +1,9 @@
 const path = require("node:path");
-const { app } = require("electron");
 
-const isPackaged = app.isPackaged;
+const electron = require("electron");
+const app = electron.app || null;
+
+const isPackaged = app ? app.isPackaged : false;
 
 /**
  * Models directory — writable location for downloaded models.
@@ -9,6 +11,7 @@ const isPackaged = app.isPackaged;
  * Dev: ./models relative to project root
  */
 function getModelsDir() {
+  if (!app) return path.join(process.cwd(), "models");
   if (isPackaged) {
     return path.join(app.getPath("userData"), "models");
   }
@@ -21,15 +24,16 @@ function getModelsDir() {
  * Dev: build/Release/fn_key_monitor.node relative to project root
  */
 function getNativeAddonPath() {
+  const root = app ? app.getAppPath() : process.cwd();
   if (isPackaged) {
     return path.join(
-      app.getAppPath().replace("app.asar", "app.asar.unpacked"),
+      root.replace("app.asar", "app.asar.unpacked"),
       "build",
       "Release",
       "fn_key_monitor.node",
     );
   }
-  return path.join(app.getAppPath(), "build", "Release", "fn_key_monitor.node");
+  return path.join(root, "build", "Release", "fn_key_monitor.node");
 }
 
 /**
@@ -47,13 +51,14 @@ function getWhisperBinaryPath() {
     binaryName,
   );
 
+  const root = app ? app.getAppPath() : process.cwd();
   if (isPackaged) {
     return path.join(
-      app.getAppPath().replace("app.asar", "app.asar.unpacked"),
+      root.replace("app.asar", "app.asar.unpacked"),
       relativePath,
     );
   }
-  return path.join(app.getAppPath(), relativePath);
+  return path.join(root, relativePath);
 }
 
 module.exports = { getModelsDir, getNativeAddonPath, getWhisperBinaryPath };
