@@ -1,4 +1,5 @@
 const { execFile } = require("node:child_process");
+const fs = require("node:fs");
 const { promisify } = require("node:util");
 const defaults = require("../config/defaults");
 const { getWhisperBinaryPath } = require("../config/paths");
@@ -26,10 +27,22 @@ async function transcribe(wavPath, lang) {
     args.push("--prompt", merged.join(", "));
   }
 
-  console.log("[transcribe] running:", WHISPER_CPP, args.join(" "));
+  // Timeout scales with audio length: 5x real-time + 30s base for model loading.
+  // 16kHz 16-bit mono = 32000 bytes/sec; minimum 30s for very short recordings.
+  const fileSize = fs.statSync(wavPath).size;
+  const audioDuration = Math.max(0, (fileSize - 44) / 32000);
+  const timeout = Math.max(30000, audioDuration * 5000 + 30000);
+
+  console.log(
+    "[transcribe] running:",
+    WHISPER_CPP,
+    args.join(" "),
+    `(${Math.round(audioDuration)}s audio, ${Math.round(timeout / 1000)}s timeout)`,
+  );
 
   const { stdout } = await execFileAsync(WHISPER_CPP, args, {
-    timeout: 30000,
+    timeout,
+    killSignal: "SIGKILL",
     maxBuffer: 10 * 1024 * 1024,
   });
 
