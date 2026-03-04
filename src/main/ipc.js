@@ -11,6 +11,7 @@ const {
   requestAccessibility,
 } = require("./hotkey");
 const { runPipeline } = require("./pipeline");
+const { restartServer, isReady } = require("./whisper-server");
 
 const execFileAsync = promisify(execFile);
 
@@ -64,9 +65,17 @@ function registerIpcHandlers(windows) {
     return true;
   });
 
-  ipcMain.handle("set-language", (event, lang) => {
+  ipcMain.handle("set-language", async (event, lang) => {
     if (!validateSender(event.senderFrame)) return false;
     store.set("language", lang);
+
+    // Restart whisper server with new language if it's running
+    if (isReady()) {
+      restartServer(lang).catch((err) => {
+        console.error("[ipc] Whisper server restart failed:", err.message);
+      });
+    }
+
     return true;
   });
 

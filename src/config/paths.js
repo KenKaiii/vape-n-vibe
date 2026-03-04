@@ -61,4 +61,57 @@ function getWhisperBinaryPath() {
   return path.join(root, relativePath);
 }
 
-module.exports = { getModelsDir, getNativeAddonPath, getWhisperBinaryPath };
+/**
+ * Whisper server binary path (whisper.cpp HTTP server).
+ * Packaged: resolved through app.asar.unpacked/node_modules
+ * Dev: node_modules/whisper-node/lib/whisper.cpp/server
+ */
+function getWhisperServerPath() {
+  const binaryName = process.platform === "win32" ? "server.exe" : "server";
+  const relativePath = path.join(
+    "node_modules",
+    "whisper-node",
+    "lib",
+    "whisper.cpp",
+    binaryName,
+  );
+
+  const root = app ? app.getAppPath() : process.cwd();
+  if (isPackaged) {
+    return path.join(
+      root.replace("app.asar", "app.asar.unpacked"),
+      relativePath,
+    );
+  }
+  return path.join(root, relativePath);
+}
+
+/**
+ * Whisper.cpp directory — contains binaries and Metal shader.
+ * Used as cwd when spawning the server so ggml-metal.metal is found.
+ */
+function getWhisperCppDir() {
+  const relativePath = path.join(
+    "node_modules",
+    "whisper-node",
+    "lib",
+    "whisper.cpp",
+  );
+
+  const root = app ? app.getAppPath() : process.cwd();
+  if (isPackaged) {
+    return path.join(
+      root.replace("app.asar", "app.asar.unpacked"),
+      relativePath,
+    );
+  }
+  return path.join(root, relativePath);
+}
+
+module.exports = {
+  getModelsDir,
+  getNativeAddonPath,
+  getWhisperBinaryPath,
+  getWhisperServerPath,
+  getWhisperCppDir,
+};

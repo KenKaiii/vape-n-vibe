@@ -1,55 +1,88 @@
-const { execFile } = require("node:child_process");
 const fs = require("node:fs");
-const { promisify } = require("node:util");
 const defaults = require("../config/defaults");
-const { getWhisperBinaryPath } = require("../config/paths");
 const store = require("./store");
-
-const execFileAsync = promisify(execFile);
-const WHISPER_CPP = getWhisperBinaryPath();
+const { ensureServer, getServerUrl } = require("./whisper-server");
 
 async function transcribe(wavPath, lang) {
-  const args = [
-    "-l",
-    lang || defaults.model.lang,
-    "-m",
-    defaults.model.path,
-    "-f",
-    wavPath,
-    "--no-timestamps",
-  ];
+  await ensureServer(lang);
 
-  // Build --prompt from built-in + user dictionary words
+  // Build prompt from built-in + user dictionary words
   const builtIn = defaults.dictionary.builtIn || [];
   const userWords = store.get("dictionaryWords") || [];
   const merged = [...new Set([...builtIn, ...userWords])];
-  if (merged.length > 0) {
-    args.push("--prompt", merged.join(", "));
-  }
 
-  // Timeout scales with audio length: 5x real-time + 30s base for model loading.
-  // 16kHz 16-bit mono = 32000 bytes/sec; minimum 30s for very short recordings.
-  const fileSize = fs.statSync(wavPath).size;
-  const audioDuration = Math.max(0, (fileSize - 44) / 32000);
-  const timeout = Math.max(30000, audioDuration * 5000 + 30000);
+  // Build multipart form data
+  const wavData = fs.readFileSync(wavPath);
+  const boundary = `----whisper${Date.now()}`;
+  const parts = [];
 
-  console.log(
-    "[transcribe] running:",
-    WHISPER_CPP,
-    args.join(" "),
-    `(${Math.round(audioDuration)}s audio, ${Math.round(timeout / 1000)}s timeout)`,
+  // Audio file part
+  parts.push(
+    `--${boundary}\r\n` +
+      'Content-Disposition: form-data; name="file"; filename="audio.wav"\r\n' +
+      "Content-Type: audio/wav\r\n\r\n",
+  );
+  parts.push(wavData);
+  parts.push("\r\n");
+
+  // Response format
+  parts.push(
+    `--${boundary}\r\n` +
+      'Content-Disposition: form-data; name="response-format"\r\n\r\n' +
+      "text\r\n",
   );
 
-  const { stdout } = await execFileAsync(WHISPER_CPP, args, {
-    timeout,
-    killSignal: "SIGKILL",
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  // Prompt (dictionary words)
+  if (merged.length > 0) {
+    parts.push(
+      `--${boundary}\r\n` +
+        'Content-Disposition: form-data; name="prompt"\r\n\r\n' +
+        merged.join(", ") +
+        "\r\n",
+    );
+  }
 
-  const text = parseOutput(stdout);
+  parts.push(`--${boundary}--\r\n`);
 
-  console.log("[transcribe] result:", text);
-  return text;
+  // Combine parts into a single buffer
+  const body = Buffer.concat(
+    parts.map((p) => (typeof p === "string" ? Buffer.from(p) : p)),
+  );
+
+  // Timeout scales with audio length: 5x real-time + 10s base.
+  // No model loading overhead, so base is lower than before.
+  const fileSize = fs.statSync(wavPath).size;
+  const audioDuration = Math.max(0, (fileSize - 44) / 32000);
+  const timeout = Math.max(15000, audioDuration * 5000 + 10000);
+
+  console.log(
+    `[transcribe] POST ${getServerUrl()}/inference (${Math.round(audioDuration)}s audio, ${Math.round(timeout / 1000)}s timeout)`,
+  );
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(`${getServerUrl()}/inference`, {
+      method: "POST",
+      headers: {
+        "Content-Type": `multipart/form-data; boundary=${boundary}`,
+      },
+      body,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Server returned ${response.status}: ${errText}`);
+    }
+
+    const text = parseOutput(await response.text());
+    console.log("[transcribe] result:", text);
+    return text;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function parseOutput(stdout) {

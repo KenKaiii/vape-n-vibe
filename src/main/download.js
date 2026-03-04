@@ -4,6 +4,7 @@ const crypto = require("node:crypto");
 const { Readable, Transform } = require("node:stream");
 const { pipeline } = require("node:stream/promises");
 const defaults = require("../config/defaults");
+const { startServer } = require("./whisper-server");
 
 async function computeFileHash(filePath) {
   const hash = crypto.createHash("sha256");
@@ -86,6 +87,11 @@ async function downloadModels(win) {
       defaults.model.sha256,
     );
     win.webContents.send("downloads-complete");
+
+    // Model just downloaded — start the whisper server
+    startServer().catch((err) => {
+      console.error("[download] Whisper server failed to start:", err.message);
+    });
   } catch (err) {
     win.webContents.send("downloads-error", err.message);
   }

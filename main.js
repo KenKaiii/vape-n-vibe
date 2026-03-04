@@ -1,3 +1,4 @@
+const fs = require("node:fs");
 const path = require("node:path");
 const { app, BrowserWindow } = require("electron");
 const { createWindow, createOverlay } = require("./src/main/window");
@@ -12,6 +13,7 @@ const {
 } = require("./src/main/ipc");
 const { createTray } = require("./src/main/tray");
 const store = require("./src/main/store");
+const { startServer, stopServer } = require("./src/main/whisper-server");
 
 // --- Global error handlers ---
 process.on("unhandledRejection", (reason) => {
@@ -32,6 +34,13 @@ if (process.platform === "darwin") {
 
 app.whenReady().then(() => {
   defaults.resolveModelPaths();
+
+  // Start whisper server if model exists (non-blocking)
+  if (fs.existsSync(defaults.model.path)) {
+    startServer(store.get("language")).catch((err) => {
+      console.error("[main] Whisper server failed to start:", err.message);
+    });
+  }
 
   windows.main = createWindow();
   windows.overlay = createOverlay();
@@ -84,6 +93,7 @@ app.on("before-quit", () => {
     w.forceClose = true;
   });
   stopHotkey();
+  stopServer();
 });
 
 app.on("window-all-closed", () => {
