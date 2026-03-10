@@ -38,6 +38,7 @@ async function pasteText(text) {
     console.log("[paste] Keystroke dispatched, waiting for target app...");
   } catch (err) {
     console.error("[paste] Failed to simulate paste:", err.message);
+    throw err;
   }
 
   // Wait for the target app to read the clipboard before restoring

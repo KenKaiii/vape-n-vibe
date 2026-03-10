@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld("vapenvibe", {
     return () => ipcRenderer.removeListener("recording-toggle", handler);
   },
   sendAudio: (wavBuffer) => ipcRenderer.invoke("audio-recorded", wavBuffer),
+  sendRecordingError: () => ipcRenderer.send("recording-error"),
   onTranscriptionStatus: (cb) => {
     const handler = (_e, status) => cb(status);
     ipcRenderer.on("transcription-status", handler);

@@ -128,7 +128,7 @@
     "vitest": "^2.1.9"
   },
   "dependencies": {
-    "electron-store": "^8.2.0",
+    "electron-store": "^7.0.3",
     "electron-updater": "^6.6.2",
     "node-addon-api": "^8.5.0",
     "uiohook-napi": "^1.5.4",

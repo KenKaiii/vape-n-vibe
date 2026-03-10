@@ -12,16 +12,12 @@ const defaults = {
     name: "whisper-large-v3-turbo-q5",
     file: "ggml-large-v3-turbo-q5_0.bin",
     url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin",
-    sha256: null,
+    sha256: "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
     lang: "auto",
-    threads: 4,
   },
 
   // Recording
   recording: {
-    sampleRate: 16000,
-    channels: 1,
-    bitDepth: 16,
     muteWhileRecording: true,
   },
 
@@ -82,13 +78,6 @@ const defaults = {
 
   // Hotkey — fn on macOS, Ctrl+Space on Windows/Linux
   hotkey: process.platform === "darwin" ? "fn" : "Ctrl+Space",
-
-  // Paste method — uses CMD+V on mac, CTRL+V on windows/linux
-  paste: {
-    darwin: "Command+V",
-    win32: "Control+V",
-    linux: "Control+V",
-  },
 
   // Paths — resolved lazily via resolveModelPaths() after app.whenReady()
   paths: {

@@ -1,4 +1,4 @@
-const fs = require("node:fs");
+const fs = require("node:fs/promises");
 const defaults = require("../config/defaults");
 const store = require("./store");
 const { ensureServer, getServerUrl } = require("./whisper-server");
@@ -12,7 +12,7 @@ async function transcribe(wavPath, lang) {
   const merged = [...new Set([...builtIn, ...userWords])];
 
   // Build multipart form data
-  const wavData = fs.readFileSync(wavPath);
+  const wavData = await fs.readFile(wavPath);
   const boundary = `----whisper${Date.now()}`;
   const parts = [];
 
@@ -51,7 +51,8 @@ async function transcribe(wavPath, lang) {
 
   // Timeout scales with audio length: 5x real-time + 10s base.
   // No model loading overhead, so base is lower than before.
-  const fileSize = fs.statSync(wavPath).size;
+  const stat = await fs.stat(wavPath);
+  const fileSize = stat.size;
   const audioDuration = Math.max(0, (fileSize - 44) / 32000);
   const timeout = Math.max(15000, audioDuration * 5000 + 10000);
 

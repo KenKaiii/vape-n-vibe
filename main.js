@@ -1,6 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, ipcMain } = require("electron");
 const { createWindow, createOverlay } = require("./src/main/window");
 const defaults = require("./src/config/defaults");
 const { registerHotkey, stopHotkey } = require("./src/main/hotkey");
@@ -10,6 +10,7 @@ const {
   registerIpcHandlers,
   getWin,
   sendToOverlay,
+  validateSender,
 } = require("./src/main/ipc");
 const { createTray } = require("./src/main/tray");
 const store = require("./src/main/store");
@@ -76,6 +77,14 @@ app.whenReady().then(() => {
         sendToOverlay("viz-mode", "idle");
       }
     },
+  });
+
+  // Reset recording state if renderer fails to start recording
+  ipcMain.on("recording-error", (event) => {
+    if (!validateSender(event.senderFrame)) return;
+    console.warn("[main] Renderer reported recording error, resetting state");
+    recording = false;
+    sendToOverlay("viz-mode", "idle");
   });
 
   app.on("activate", () => {

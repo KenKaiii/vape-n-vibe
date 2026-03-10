@@ -23,7 +23,10 @@ async function downloadFile(url, destPath, onProgress, expectedHash) {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  const res = await fetch(url, { redirect: "follow" });
+  const res = await fetch(url, {
+    redirect: "follow",
+    signal: AbortSignal.timeout(300000),
+  });
 
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);

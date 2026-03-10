@@ -126,7 +126,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     downloadBtn.classList.add("hidden");
     downloadProgress.classList.remove("hidden");
     downloadProgress.textContent = "Downloading\u2026 0%";
-    await window.vapenvibe.startDownloads();
+    try {
+      await window.vapenvibe.startDownloads();
+    } catch (err) {
+      console.error("[renderer] Download failed:", err);
+      downloadProgress.classList.add("hidden");
+      downloadBtn.classList.remove("hidden");
+      downloadBtn.textContent = "Retry download";
+    }
   });
 
   window.vapenvibe.onDownloadsProgress((pct) => {
@@ -377,6 +384,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       console.error("[renderer] Recording error:", err);
       isRecording = false;
       shortcutEl.classList.remove("recording");
+      window.vapenvibe.sendRecordingError();
     }
   });
 

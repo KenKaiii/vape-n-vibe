@@ -10,9 +10,7 @@ describe("defaults", () => {
   });
 
   it("has recording config with correct values", () => {
-    expect(defaults.recording.sampleRate).toBe(16000);
-    expect(defaults.recording.channels).toBe(1);
-    expect(defaults.recording.bitDepth).toBe(16);
+    expect(defaults.recording.muteWhileRecording).toBe(true);
   });
 
   it("has window dimensions", () => {
@@ -28,10 +26,9 @@ describe("defaults", () => {
     }
   });
 
-  it("has paste config for each platform", () => {
-    expect(defaults.paste.darwin).toBeDefined();
-    expect(defaults.paste.win32).toBeDefined();
-    expect(defaults.paste.linux).toBeDefined();
+  it("has model sha256 hash for integrity verification", () => {
+    expect(defaults.model.sha256).toBeDefined();
+    expect(defaults.model.sha256).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it("has model language default", () => {

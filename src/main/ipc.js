@@ -79,12 +79,10 @@ function registerIpcHandlers(windows) {
     return true;
   });
 
-  ipcMain.handle("start-downloads", (event) => {
+  ipcMain.handle("start-downloads", async (event) => {
     if (!validateSender(event.senderFrame)) return false;
     const win = BrowserWindow.fromWebContents(event.sender);
-    downloadModels(win).catch((err) => {
-      console.error("[main] Download error:", err);
-    });
+    await downloadModels(win);
     return true;
   });
 

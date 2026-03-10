@@ -219,26 +219,32 @@ function stopFnMonitor() {
 }
 
 // --- Start/stop uiohook ---
+let onKeyDown = null;
+let onKeyUp = null;
+
 function startUiohook() {
   if (uiohookStarted) return;
 
-  uIOhook.on("keydown", (e) => {
+  onKeyDown = (e) => {
     if (!callbacks || active) return;
     if (matchesDown(e)) {
       active = true;
       console.log("[hotkey] key DOWN:", e.keycode);
       callbacks.onDown();
     }
-  });
+  };
 
-  uIOhook.on("keyup", (e) => {
+  onKeyUp = (e) => {
     if (!callbacks || !active) return;
     if (matchesUp(e)) {
       active = false;
       console.log("[hotkey] key UP:", e.keycode);
       callbacks.onUp();
     }
-  });
+  };
+
+  uIOhook.on("keydown", onKeyDown);
+  uIOhook.on("keyup", onKeyUp);
 
   uIOhook.start();
   uiohookStarted = true;
@@ -323,6 +329,10 @@ function stopHotkey() {
   unregisterSuppression();
   stopFnMonitor();
   if (uiohookStarted) {
+    if (onKeyDown) uIOhook.off("keydown", onKeyDown);
+    if (onKeyUp) uIOhook.off("keyup", onKeyUp);
+    onKeyDown = null;
+    onKeyUp = null;
     uIOhook.stop();
     uiohookStarted = false;
   }
