@@ -3,7 +3,75 @@ const defaults = require("../config/defaults");
 const store = require("./store");
 const { ensureServer, getServerUrl } = require("./whisper-server");
 
+/** Minimum audio duration in seconds to bother transcribing. */
+const MIN_AUDIO_DURATION_S = 0.5;
+
+/**
+ * RMS energy threshold — audio below this is considered silent.
+ * 16-bit PCM range is -32768..32767; threshold ~0.5% of full scale.
+ */
+const SILENCE_RMS_THRESHOLD = 150;
+
+/**
+ * Check if a WAV buffer (16-bit PCM mono) contains enough speech to
+ * be worth transcribing.  Returns { hasSpeech, duration } so callers
+ * can short-circuit before hitting Whisper.
+ */
+function analyzeWav(wavData) {
+  const WAV_HEADER = 44;
+  const BYTES_PER_SAMPLE = 2;
+  const SAMPLE_RATE = 16000;
+
+  if (wavData.length <= WAV_HEADER) {
+    return { hasSpeech: false, duration: 0 };
+  }
+
+  const pcmBytes = wavData.length - WAV_HEADER;
+  const numSamples = Math.floor(pcmBytes / BYTES_PER_SAMPLE);
+  const duration = numSamples / SAMPLE_RATE;
+
+  // Too short — Whisper hallucinates on sub-second clips
+  if (duration < MIN_AUDIO_DURATION_S) {
+    return { hasSpeech: false, duration };
+  }
+
+  // Segment-based energy check: if ANY 50ms window exceeds threshold,
+  // the audio likely contains speech.  This avoids averaging short
+  // phrases surrounded by silence (which dilutes the energy).
+  const segmentSamples = Math.floor(SAMPLE_RATE * 0.05); // 50ms segments
+  const pcm = Buffer.from(wavData.buffer, wavData.byteOffset + WAV_HEADER);
+
+  for (
+    let off = 0;
+    off + segmentSamples * BYTES_PER_SAMPLE <= pcmBytes;
+    off += segmentSamples * BYTES_PER_SAMPLE
+  ) {
+    let sumSq = 0;
+    for (let i = 0; i < segmentSamples; i++) {
+      const sample = pcm.readInt16LE(off + i * BYTES_PER_SAMPLE);
+      sumSq += sample * sample;
+    }
+    const rms = Math.sqrt(sumSq / segmentSamples);
+    if (rms > SILENCE_RMS_THRESHOLD) {
+      return { hasSpeech: true, duration };
+    }
+  }
+
+  return { hasSpeech: false, duration };
+}
+
 async function transcribe(wavPath, lang) {
+  // --- Pre-transcription audio validation ---
+  const wavData = await fs.readFile(wavPath);
+  const { hasSpeech, duration: audioDuration } = analyzeWav(wavData);
+
+  if (!hasSpeech) {
+    console.log(
+      `[transcribe] Skipped — audio too short (${audioDuration.toFixed(2)}s) or silent`,
+    );
+    return "";
+  }
+
   await ensureServer(lang);
 
   // Build prompt from built-in + user dictionary words
@@ -12,7 +80,6 @@ async function transcribe(wavPath, lang) {
   const merged = [...new Set([...builtIn, ...userWords])];
 
   // Build multipart form data
-  const wavData = await fs.readFile(wavPath);
   const boundary = `----whisper${Date.now()}`;
   const parts = [];
 
@@ -50,10 +117,6 @@ async function transcribe(wavPath, lang) {
   );
 
   // Timeout scales with audio length: 5x real-time + 10s base.
-  // No model loading overhead, so base is lower than before.
-  const stat = await fs.stat(wavPath);
-  const fileSize = stat.size;
-  const audioDuration = Math.max(0, (fileSize - 44) / 32000);
   const timeout = Math.max(15000, audioDuration * 5000 + 10000);
 
   console.log(
@@ -86,15 +149,144 @@ async function transcribe(wavPath, lang) {
   }
 }
 
+// ── Hallucination filtering ────────────────────────────────────────
+
 /**
- * Whisper hallucination patterns — these appear when audio is
- * silent, too short, or contains only background noise.
+ * Exact-match hallucinations — if the *entire* transcript is one of
+ * these (case-insensitive, after stripping trailing punctuation),
+ * reject it outright.  Trailing `.!?` is stripped before lookup so
+ * entries here don't need punctuated duplicates.
  */
-const HALLUCINATION_RE =
-  /^\[.*\]$|^[\s.!?…*()]+$|^(thanks?(\s+you)?|thank you( for watching)?|bye|goodbye|you|\.+|,+|!+|\?+)$/i;
+const HALLUCINATION_EXACT = new Set([
+  "thank you",
+  "thanks",
+  "thank you for watching",
+  "thanks for watching",
+  "thank you for listening",
+  "thanks for listening",
+  "subscribe",
+  "like and subscribe",
+  "please subscribe",
+  "don't forget to subscribe",
+  "hit the bell",
+  "leave a comment",
+  "see you next time",
+  "see you later",
+  "see you in the next video",
+  "see you in the next one",
+  "bye",
+  "bye bye",
+  "bye-bye",
+  "goodbye",
+  "good bye",
+  "take care",
+  "have a nice day",
+  "have a good day",
+  "peace out",
+  "the end",
+  "silence",
+  "no speech",
+  "inaudible",
+  "you",
+  "so",
+  "okay",
+  "yeah",
+  "hmm",
+  "hm",
+  "oh",
+  "ah",
+  "uh",
+  "um",
+]);
+
+/**
+ * Normalize text for hallucination lookup: lowercase, collapse
+ * whitespace, and strip trailing punctuation so "Thank you." and
+ * "Thank you!" both match the entry "thank you".
+ */
+function normalizeForHallucinationCheck(text) {
+  return text
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[.!?]+$/, "");
+}
+
+/** Pattern for bracket/paren tokens and punctuation-only strings. */
+const HALLUCINATION_STRUCTURAL_RE = /^\[.*\]$|^[\s.!?…,;:*()#\-_]+$/;
+
+/**
+ * Trailing phrases to strip from the *end* of otherwise valid
+ * transcriptions (e.g. "deploy the feature. Thank you.").
+ * Ordered longest-first so greedy match works correctly.
+ * Matching strips trailing `.!?` from the transcript before
+ * comparison, so entries here don't need punctuated duplicates.
+ */
+const TRAILING_HALLUCINATIONS = [
+  "thank you for watching",
+  "thanks for watching",
+  "thank you for listening",
+  "thanks for listening",
+  "don't forget to subscribe",
+  "like and subscribe",
+  "please subscribe",
+  "see you next time",
+  "see you later",
+  "thank you",
+  "thanks",
+  "bye bye",
+  "bye-bye",
+  "goodbye",
+  "good bye",
+  "bye",
+];
+
+/**
+ * Detect repetitive loops — Whisper sometimes gets stuck repeating
+ * the same word/phrase.  If any single word accounts for ≥60% of all
+ * words (and there are at least 4 words), treat it as a hallucination.
+ */
+function isRepetitiveLoop(text) {
+  const words = text.toLowerCase().split(/\s+/);
+  if (words.length < 4) return false;
+
+  const freq = {};
+  for (const w of words) {
+    freq[w] = (freq[w] || 0) + 1;
+  }
+  const maxCount = Math.max(...Object.values(freq));
+  return maxCount / words.length >= 0.6;
+}
+
+/**
+ * Strip trailing hallucinated phrases from the end of a transcript.
+ * Trailing punctuation (.!?) is removed before comparison so the
+ * phrase list doesn't need punctuated duplicates.
+ * Returns the cleaned text.
+ */
+function stripTrailingHallucinations(text) {
+  let result = text;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const trimmed = result.trimEnd();
+    // Strip trailing punctuation for matching (but measure how many
+    // chars to remove from the original string including the punct).
+    const noPunct = trimmed.replace(/[.!?]+$/, "");
+    const lower = noPunct.toLowerCase();
+    for (const phrase of TRAILING_HALLUCINATIONS) {
+      if (lower.endsWith(phrase)) {
+        result = noPunct.slice(0, noPunct.length - phrase.length).trimEnd();
+        changed = true;
+        break; // restart from longest phrases
+      }
+    }
+  }
+  return result;
+}
 
 function parseOutput(stdout) {
-  const text = stdout
+  let text = stdout
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.length > 0)
@@ -104,9 +296,51 @@ function parseOutput(stdout) {
     .replace(/\(.*?\)/g, "") // strip paren tokens like (music)
     .trim();
 
-  // Reject common hallucinations
-  if (!text || HALLUCINATION_RE.test(text)) {
-    console.log("[transcribe] Filtered hallucination:", JSON.stringify(text));
+  // 1. Structural patterns (brackets-only, punctuation-only)
+  if (!text || HALLUCINATION_STRUCTURAL_RE.test(text)) {
+    console.log(
+      "[transcribe] Filtered hallucination (structural):",
+      JSON.stringify(text),
+    );
+    return "";
+  }
+
+  // 2. Exact-match hallucinations (entire output is a known phrase)
+  if (HALLUCINATION_EXACT.has(normalizeForHallucinationCheck(text))) {
+    console.log(
+      "[transcribe] Filtered hallucination (exact):",
+      JSON.stringify(text),
+    );
+    return "";
+  }
+
+  // 3. Repetitive loop detection
+  if (isRepetitiveLoop(text)) {
+    console.log(
+      "[transcribe] Filtered hallucination (repetitive):",
+      JSON.stringify(text),
+    );
+    return "";
+  }
+
+  // 4. Strip trailing hallucinated phrases from real transcriptions
+  const stripped = stripTrailingHallucinations(text);
+  if (stripped !== text) {
+    console.log(
+      "[transcribe] Stripped trailing hallucination:",
+      JSON.stringify(text),
+      "→",
+      JSON.stringify(stripped),
+    );
+    text = stripped;
+  }
+
+  // Final check — stripping may have left nothing
+  if (!text || HALLUCINATION_EXACT.has(normalizeForHallucinationCheck(text))) {
+    console.log(
+      "[transcribe] Filtered hallucination (post-strip):",
+      JSON.stringify(text),
+    );
     return "";
   }
 
