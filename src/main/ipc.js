@@ -12,6 +12,7 @@ const {
 } = require("./hotkey");
 const { runPipeline } = require("./pipeline");
 const { restartServer, isReady } = require("./whisper-server");
+const { transcribePartial } = require("./transcribe");
 
 const execFileAsync = promisify(execFile);
 
@@ -177,10 +178,51 @@ function registerIpcHandlers(windows) {
     sendToOverlay("viz-freq", data);
   });
 
+  // Partial transcription — display-only preview in the overlay.
+  // The full accumulated audio buffer is re-transcribed each time so
+  // whisper has enough context.  We track the latest result and paste
+  // it once on recording stop (avoiding a second full-pipeline pass).
+  let partialInFlight = false;
+  let acceptPartials = false;
+
+  ipcMain.handle("audio-partial", async (event, wavBuffer) => {
+    if (!validateSender(event.senderFrame)) return "";
+    if (partialInFlight) return "";
+
+    acceptPartials = true;
+    partialInFlight = true;
+    try {
+      const lang = store.get("language");
+      const text = await transcribePartial(wavBuffer, lang);
+
+      // Only update overlay if recording is still active
+      if (text && acceptPartials) {
+        sendToOverlay("partial-text", text);
+        const win = getWin();
+        if (win) win.webContents.send("partial-text", text);
+      }
+
+      return text;
+    } catch (err) {
+      console.error("[ipc] partial transcription error:", err.message);
+      return "";
+    } finally {
+      partialInFlight = false;
+    }
+  });
+
   // Receive recorded audio from renderer
   ipcMain.handle("audio-recorded", async (event, wavBuffer) => {
     if (!validateSender(event.senderFrame)) return false;
 
+    acceptPartials = false;
+
+    // Clear overlay text (visualizer mode handled by pipeline)
+    sendToOverlay("partial-text", "");
+
+    // Always run the full pipeline with the complete audio buffer.
+    // Partials were display-only previews — the final transcription
+    // needs the entire recording to capture every word.
     await runPipeline(wavBuffer, {
       sendStatus: (status) => {
         const win = getWin();

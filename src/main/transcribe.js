@@ -347,4 +347,87 @@ function parseOutput(stdout) {
   return text;
 }
 
-module.exports = { transcribe, parseOutput };
+/**
+ * Lightweight partial transcription for live preview during recording.
+ * Accepts a raw WAV buffer, POSTs it to the whisper server, and returns
+ * text with only structural filtering (no hallucination exact-match
+ * since partials are ephemeral display-only).
+ */
+async function transcribePartial(wavBuffer, lang) {
+  const wavData =
+    wavBuffer instanceof Uint8Array
+      ? wavBuffer
+      : new Uint8Array(
+          wavBuffer instanceof ArrayBuffer
+            ? wavBuffer
+            : wavBuffer.buffer.slice(
+                wavBuffer.byteOffset,
+                wavBuffer.byteOffset + wavBuffer.byteLength,
+              ),
+        );
+
+  const { hasSpeech } = analyzeWav(wavData);
+  if (!hasSpeech) return "";
+
+  await ensureServer(lang);
+
+  const boundary = `----whisper${Date.now()}`;
+  const parts = [];
+
+  parts.push(
+    `--${boundary}\r\n` +
+      'Content-Disposition: form-data; name="file"; filename="audio.wav"\r\n' +
+      "Content-Type: audio/wav\r\n\r\n",
+  );
+  parts.push(Buffer.from(wavData.buffer, wavData.byteOffset, wavData.length));
+  parts.push("\r\n");
+
+  parts.push(
+    `--${boundary}\r\n` +
+      'Content-Disposition: form-data; name="response-format"\r\n\r\n' +
+      "text\r\n",
+  );
+
+  // Include dictionary prompt for better accuracy
+  const builtIn = defaults.dictionary.builtIn || [];
+  const userWords = store.get("dictionaryWords") || [];
+  const merged = [...new Set([...builtIn, ...userWords])];
+  if (merged.length > 0) {
+    parts.push(
+      `--${boundary}\r\n` +
+        'Content-Disposition: form-data; name="prompt"\r\n\r\n' +
+        merged.join(", ") +
+        "\r\n",
+    );
+  }
+
+  parts.push(`--${boundary}--\r\n`);
+
+  const body = Buffer.concat(
+    parts.map((p) => (typeof p === "string" ? Buffer.from(p) : p)),
+  );
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(`${getServerUrl()}/inference`, {
+      method: "POST",
+      headers: {
+        "Content-Type": `multipart/form-data; boundary=${boundary}`,
+      },
+      body,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) return "";
+
+    const text = parseOutput(await response.text());
+    console.log("[transcribe-partial] result:", text);
+    return text;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+module.exports = { transcribe, transcribePartial, parseOutput };

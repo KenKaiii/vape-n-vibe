@@ -184,11 +184,15 @@ function drawSmoke() {
   ctx.fill();
 }
 
+// --- Partial transcription text ---
+const partialTextEl = document.getElementById("partial-text");
+
 // --- IPC listeners via preload bridge ---
 window.vizBridge.onVizMode((newMode) => {
   mode = newMode;
   if (newMode === "idle") {
     targetAlpha = 0;
+    partialTextEl.textContent = "";
   } else {
     targetAlpha = 1;
     if (newMode === "processing") {
@@ -202,6 +206,15 @@ window.vizBridge.onVizMode((newMode) => {
 
 window.vizBridge.onVizFreq((data) => {
   freqData = data;
+});
+
+window.vizBridge.onPartialText((text) => {
+  if (text) {
+    // Wrap in <bdi> so RTL container direction doesn't reverse the text
+    partialTextEl.innerHTML = `<bdi>${text}</bdi>`;
+  } else {
+    partialTextEl.textContent = "";
+  }
 });
 
 // Loop starts on first mode change via startLoop()

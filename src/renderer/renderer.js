@@ -242,6 +242,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   let analyser = null;
   let freqData = null;
   let vizInterval = null;
+  let partialInterval = null;
   let stream = null;
   let audioChunks = [];
   let isRecording = false;
@@ -298,6 +299,23 @@ window.addEventListener("DOMContentLoaded", async () => {
     processor.port.postMessage("start");
 
     source.connect(processor);
+
+    // Send full accumulated audio for live transcription preview every 2s.
+    // Whisper needs several seconds of context to produce useful output,
+    // so we always send the entire buffer — results are display-only in
+    // the overlay.  The final paste happens on stop.
+    partialInterval = setInterval(() => {
+      if (audioChunks.length === 0) return;
+      const length = audioChunks.reduce((sum, c) => sum + c.length, 0);
+      const pcm = new Float32Array(length);
+      let off = 0;
+      for (const chunk of audioChunks) {
+        pcm.set(chunk, off);
+        off += chunk.length;
+      }
+      const wavBuf = encodeWav(pcm, 16000);
+      window.vapenvibe.sendPartialAudio(wavBuf);
+    }, 2000);
   }
 
   async function stopRecording() {
@@ -305,6 +323,10 @@ window.addEventListener("DOMContentLoaded", async () => {
     isRecording = false;
     shortcutEl.classList.remove("recording");
 
+    if (partialInterval) {
+      clearInterval(partialInterval);
+      partialInterval = null;
+    }
     if (vizInterval) {
       clearInterval(vizInterval);
       vizInterval = null;

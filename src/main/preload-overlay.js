@@ -11,4 +11,9 @@ contextBridge.exposeInMainWorld("vizBridge", {
     ipcRenderer.on("viz-freq", handler);
     return () => ipcRenderer.removeListener("viz-freq", handler);
   },
+  onPartialText: (cb) => {
+    const handler = (_e, text) => cb(text);
+    ipcRenderer.on("partial-text", handler);
+    return () => ipcRenderer.removeListener("partial-text", handler);
+  },
 });
