@@ -92,6 +92,12 @@ async function startServer(lang) {
     "127.0.0.1",
     "--language",
     language,
+    // Beam search is measurably more stable than greedy on short clips —
+    // reduces both single-word mis-hears and end-of-audio hallucinations.
+    "--beam-size",
+    "5",
+    "--best-of",
+    "5",
   ];
 
   console.log("[whisper-server] Starting:", serverBin, args.join(" "));

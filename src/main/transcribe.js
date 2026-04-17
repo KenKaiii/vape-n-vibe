@@ -7,10 +7,101 @@ const { ensureServer, getServerUrl } = require("./whisper-server");
 const MIN_AUDIO_DURATION_S = 0.5;
 
 /**
+ * Below this duration, skip the dictionary prompt — on ~1s of audio
+ * the 40+ word prompt dominates context and biases the output toward
+ * technical jargon (random "Claude"/"Docker"/etc.)
+ */
+const PROMPT_MIN_AUDIO_S = 1.5;
+
+/**
  * RMS energy threshold — audio below this is considered silent.
  * 16-bit PCM range is -32768..32767; threshold ~0.5% of full scale.
  */
 const SILENCE_RMS_THRESHOLD = 150;
+
+/** Segment size used for both silence detection and trimming. */
+const SEGMENT_MS = 50;
+
+/**
+ * Keep this much silence on each side of detected speech after trimming.
+ * Zero-length boundaries are what trigger end-of-audio hallucinations;
+ * a short guard band avoids clipping word onsets/offsets.
+ */
+const TRIM_GUARD_MS = 120;
+
+/**
+ * Trim leading and trailing silence from a 16-bit PCM mono WAV buffer.
+ * Push-to-talk clips typically contain silence between the hotkey press
+ * and the first spoken syllable (and again at the end) — those silent
+ * regions are exactly where Whisper fabricates "thanks for watching",
+ * "you", and similar end-of-audio hallucinations. Multiple community
+ * projects (Superwhisper's "Remove Silence", open-webui's
+ * remove_silence preprocess) report large hallucination reductions
+ * from this single change.
+ *
+ * Implementation: scan 50ms RMS segments, find first and last segment
+ * above the speech threshold, keep TRIM_GUARD_MS on each side.
+ * Falls back to the original buffer if no speech is detected (caller
+ * should have already short-circuited via analyzeWav, but be safe).
+ */
+function trimSilenceWav(wavData) {
+  const WAV_HEADER = 44;
+  const SAMPLE_RATE = 16000;
+  const BYTES_PER_SAMPLE = 2;
+
+  if (wavData.length <= WAV_HEADER) return wavData;
+
+  const pcmBytes = wavData.length - WAV_HEADER;
+  const segmentSamples = Math.floor((SAMPLE_RATE * SEGMENT_MS) / 1000);
+  const segmentBytes = segmentSamples * BYTES_PER_SAMPLE;
+  const pcm = Buffer.from(
+    wavData.buffer,
+    wavData.byteOffset + WAV_HEADER,
+    pcmBytes,
+  );
+
+  // Find first and last segment containing speech.
+  let firstSpeechSeg = -1;
+  let lastSpeechSeg = -1;
+  const numSegs = Math.floor(pcmBytes / segmentBytes);
+  for (let s = 0; s < numSegs; s++) {
+    let sumSq = 0;
+    const base = s * segmentBytes;
+    for (let i = 0; i < segmentSamples; i++) {
+      const sample = pcm.readInt16LE(base + i * BYTES_PER_SAMPLE);
+      sumSq += sample * sample;
+    }
+    const rms = Math.sqrt(sumSq / segmentSamples);
+    if (rms > SILENCE_RMS_THRESHOLD) {
+      if (firstSpeechSeg === -1) firstSpeechSeg = s;
+      lastSpeechSeg = s;
+    }
+  }
+
+  if (firstSpeechSeg === -1) return wavData; // all silence, bail
+
+  const guardSegs = Math.ceil(TRIM_GUARD_MS / SEGMENT_MS);
+  const startSeg = Math.max(0, firstSpeechSeg - guardSegs);
+  const endSeg = Math.min(numSegs - 1, lastSpeechSeg + guardSegs);
+
+  const startByte = startSeg * segmentBytes;
+  const endByte = (endSeg + 1) * segmentBytes; // exclusive
+  const trimmedLen = endByte - startByte;
+
+  // No meaningful trim? skip the copy.
+  if (startByte === 0 && endByte === pcmBytes) return wavData;
+
+  const header = Buffer.from(wavData.buffer, wavData.byteOffset, WAV_HEADER);
+  const out = Buffer.alloc(WAV_HEADER + trimmedLen);
+  header.copy(out, 0);
+  pcm.copy(out, WAV_HEADER, startByte, endByte);
+
+  // Fix RIFF chunk size (offset 4) and data chunk size (offset 40).
+  out.writeUInt32LE(36 + trimmedLen, 4);
+  out.writeUInt32LE(trimmedLen, 40);
+
+  return out;
+}
 
 /**
  * Check if a WAV buffer (16-bit PCM mono) contains enough speech to
@@ -62,8 +153,8 @@ function analyzeWav(wavData) {
 
 async function transcribe(wavPath, lang) {
   // --- Pre-transcription audio validation ---
-  const wavData = await fs.readFile(wavPath);
-  const { hasSpeech, duration: audioDuration } = analyzeWav(wavData);
+  const rawWav = await fs.readFile(wavPath);
+  const { hasSpeech, duration: audioDuration } = analyzeWav(rawWav);
 
   if (!hasSpeech) {
     console.log(
@@ -72,12 +163,20 @@ async function transcribe(wavPath, lang) {
     return "";
   }
 
+  // Trim leading/trailing silence — silent regions at clip boundaries
+  // are the primary trigger for end-of-audio hallucinations.
+  const wavData = trimSilenceWav(rawWav);
+
   await ensureServer(lang);
 
-  // Build prompt from built-in + user dictionary words
+  // Build prompt from built-in + user dictionary words.
+  // Skip on very short clips where the prompt biases output toward jargon.
   const builtIn = defaults.dictionary.builtIn || [];
   const userWords = store.get("dictionaryWords") || [];
-  const merged = [...new Set([...builtIn, ...userWords])];
+  const merged =
+    audioDuration < PROMPT_MIN_AUDIO_S
+      ? []
+      : [...new Set([...builtIn, ...userWords])];
 
   // Build multipart form data
   const boundary = `----whisper${Date.now()}`;
@@ -97,6 +196,16 @@ async function transcribe(wavPath, lang) {
     `--${boundary}\r\n` +
       'Content-Disposition: form-data; name="response-format"\r\n\r\n' +
       "text\r\n",
+  );
+
+  // Disable temperature fallback. In the bundled whisper.cpp server the
+  // `temperature` form field is wired to wparams.temperature_inc, so
+  // 0.0 means "never retry at higher randomness" — this is the single
+  // biggest lever against end-of-audio hallucinations.
+  parts.push(
+    `--${boundary}\r\n` +
+      'Content-Disposition: form-data; name="temperature"\r\n\r\n' +
+      "0.0\r\n",
   );
 
   // Prompt (dictionary words)
@@ -386,6 +495,13 @@ async function transcribePartial(wavBuffer, lang) {
     `--${boundary}\r\n` +
       'Content-Disposition: form-data; name="response-format"\r\n\r\n' +
       "text\r\n",
+  );
+
+  // Disable temperature fallback (see transcribe() for rationale).
+  parts.push(
+    `--${boundary}\r\n` +
+      'Content-Disposition: form-data; name="temperature"\r\n\r\n' +
+      "0.0\r\n",
   );
 
   // Include dictionary prompt for better accuracy
