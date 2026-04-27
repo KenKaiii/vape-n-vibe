@@ -94,10 +94,18 @@ async function startServer(lang) {
     language,
     // Beam search is measurably more stable than greedy on short clips —
     // reduces both single-word mis-hears and end-of-audio hallucinations.
+    // (--best-of is intentionally omitted: it only applies to the sampling
+    // decoder at temperature>0, and we force temperature=0.0 per request.)
     "--beam-size",
     "5",
-    "--best-of",
-    "5",
+    // Disable cross-segment text context. Default behavior feeds the
+    // previous segment's tokens as a prompt for the next segment, which
+    // chains hallucinations: one stray "thank you" biases the next
+    // segment toward more YouTube-outro phrases. Setting to 0 makes
+    // each segment decode independently. Confirmed against whisper.cpp
+    // wparams.n_max_text_ctx in the server source.
+    "--max-context",
+    "0",
   ];
 
   console.log("[whisper-server] Starting:", serverBin, args.join(" "));
