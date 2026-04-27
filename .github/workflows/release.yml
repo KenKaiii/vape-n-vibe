@@ -105,3 +105,16 @@ jobs:
             release/*.exe
             release/*.yml
           if-no-files-found: error
+
+  publish-release:
+    # electron-builder uploads to a *draft* release (releaseType: draft in
+    # package.json) so both build jobs can append assets without racing on
+    # POST /releases. This job promotes the draft to a published release
+    # once both builds succeed.
+    needs: [build-mac, build-win]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${GITHUB_REF_NAME}" --draft=false --repo "${GITHUB_REPOSITORY}"
