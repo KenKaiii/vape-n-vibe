@@ -10,7 +10,30 @@ permissions:
   contents: write
 
 jobs:
+  create-draft:
+    # Pre-create a single draft release for the build jobs to upload to.
+    # Without this, build-mac and build-win each create their own draft
+    # (GitHub allows multiple drafts per tag), and only one survives
+    # promotion — the other's assets are stranded.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create draft release if missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — skipping create."
+          else
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft \
+              --title "${TAG#v}" \
+              --notes "Automated release for $TAG."
+          fi
+
   build-mac:
+    needs: create-draft
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -68,6 +91,7 @@ jobs:
           if-no-files-found: error
 
   build-win:
+    needs: create-draft
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
