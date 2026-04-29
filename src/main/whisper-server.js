@@ -1,7 +1,33 @@
 const { spawn } = require("node:child_process");
 const net = require("node:net");
+const fs = require("node:fs");
+const path = require("node:path");
+const os = require("node:os");
+const { app } = require("electron");
 const defaults = require("../config/defaults");
 const { getWhisperServerPath, getWhisperCppDir } = require("../config/paths");
+
+/**
+ * Resolve a writable directory to use as the whisper.cpp server's cwd.
+ *
+ * The bundled server (whisper-node) hardcodes its inference temp file as
+ * `whisper_server_temp_file.wav` *relative to cwd*. In a packaged macOS
+ * build, the natural cwd (node_modules/whisper-node/lib/whisper.cpp under
+ * app.asar.unpacked) is read-only — the temp write silently fails and the
+ * server then returns `{"error":"failed to read WAV file"}`. Pointing cwd
+ * at a per-user writable dir avoids this.
+ */
+function getServerCwd() {
+  const base = app ? app.getPath("temp") : os.tmpdir();
+  const dir = path.join(base, "vapenvibe-whisper");
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch {
+    // best effort — fall back to plain tmp
+    return base;
+  }
+  return dir;
+}
 
 let serverProcess = null;
 let serverPort = null;
@@ -79,7 +105,8 @@ async function startServer(lang) {
 
   const port = await findFreePort();
   const serverBin = getWhisperServerPath();
-  const cwd = getWhisperCppDir();
+  const whisperCppDir = getWhisperCppDir();
+  const cwd = getServerCwd();
 
   const language = lang || defaults.model.lang;
 
@@ -112,6 +139,11 @@ async function startServer(lang) {
 
   const proc = spawn(serverBin, args, {
     cwd,
+    // ggml-metal.m loads ggml-metal.metal from GGML_METAL_PATH_RESOURCES
+    // when set, otherwise falls back to cwd. Since we deliberately moved
+    // cwd away from the whisper.cpp dir (see getServerCwd), point Metal
+    // at the bundled shader explicitly.
+    env: { ...process.env, GGML_METAL_PATH_RESOURCES: whisperCppDir },
     stdio: ["ignore", "pipe", "pipe"],
   });
 
