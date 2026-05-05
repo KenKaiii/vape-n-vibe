@@ -170,9 +170,10 @@ function registerIpcHandlers(windows) {
   ipcMain.handle("set-dictionary", (event, words) => {
     if (!validateSender(event.senderFrame)) return false;
     if (!Array.isArray(words)) return false;
-    const clean = words.filter(
-      (w) => typeof w === "string" && w.trim() && !/[\s,]/.test(w),
-    );
+    const clean = words
+      .filter((w) => typeof w === "string" && w.trim() && !/[\s,]/.test(w))
+      .filter((w) => w.length <= 50)
+      .slice(0, 200);
     store.set("dictionaryWords", clean);
     return true;
   });
@@ -197,21 +198,29 @@ function registerIpcHandlers(windows) {
   // The full accumulated audio buffer is re-transcribed each time so
   // whisper has enough context.  We track the latest result and paste
   // it once on recording stop (avoiding a second full-pipeline pass).
+  //
+  // Session ID pattern: each recording session gets a unique integer ID.
+  // Partials capture the ID at dispatch time and discard their result if
+  // the ID has changed by the time transcribePartial() resolves — this
+  // prevents a partial that was in-flight when audio-recorded fired from
+  // updating the overlay after the session has already ended.
   let partialInFlight = false;
-  let acceptPartials = false;
+  let recordingSessionId = 0;
 
   ipcMain.handle("audio-partial", async (event, wavBuffer) => {
     if (!validateSender(event.senderFrame)) return "";
     if (partialInFlight) return "";
 
-    acceptPartials = true;
+    const sessionId = recordingSessionId;
     partialInFlight = true;
     try {
       const lang = store.get("language");
       const text = await transcribePartial(wavBuffer, lang);
 
-      // Only update overlay if recording is still active
-      if (text && acceptPartials) {
+      // Only update overlay if the recording session is still active.
+      // If audio-recorded fired while we were awaiting, sessionId will
+      // differ from recordingSessionId and we silently discard the result.
+      if (text && sessionId === recordingSessionId) {
         sendToOverlay("partial-text", text);
         const win = getWin();
         if (win) win.webContents.send("partial-text", text);
@@ -230,7 +239,8 @@ function registerIpcHandlers(windows) {
   ipcMain.handle("audio-recorded", async (event, wavBuffer) => {
     if (!validateSender(event.senderFrame)) return false;
 
-    acceptPartials = false;
+    // Advance the session ID so any in-flight partial discards its result.
+    recordingSessionId++;
 
     // Clear overlay text (visualizer mode handled by pipeline)
     sendToOverlay("partial-text", "");

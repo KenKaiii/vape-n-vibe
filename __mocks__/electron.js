@@ -1,4 +1,12 @@
+let _clipboardText = "";
+
 module.exports = {
+  clipboard: {
+    readText: () => _clipboardText,
+    writeText: (text) => {
+      _clipboardText = text;
+    },
+  },
   app: {
     isPackaged: false,
     getAppPath: () => "/app",

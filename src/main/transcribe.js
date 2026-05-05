@@ -151,34 +151,16 @@ function analyzeWav(wavData) {
   return { hasSpeech: false, duration };
 }
 
-async function transcribe(wavPath, lang) {
-  // --- Pre-transcription audio validation ---
-  const rawWav = await fs.readFile(wavPath);
-  const { hasSpeech, duration: audioDuration } = analyzeWav(rawWav);
-
-  if (!hasSpeech) {
-    console.log(
-      `[transcribe] Skipped — audio too short (${audioDuration.toFixed(2)}s) or silent`,
-    );
-    return "";
-  }
-
-  // Trim leading/trailing silence — silent regions at clip boundaries
-  // are the primary trigger for end-of-audio hallucinations.
-  const wavData = trimSilenceWav(rawWav);
-
-  await ensureServer(lang);
-
-  // Build prompt from built-in + user dictionary words.
-  // Skip on very short clips where the prompt biases output toward jargon.
-  const builtIn = defaults.dictionary.builtIn || [];
-  const userWords = store.get("dictionaryWords") || [];
-  const merged =
-    audioDuration < PROMPT_MIN_AUDIO_S
-      ? []
-      : [...new Set([...builtIn, ...userWords])];
-
-  // Build multipart form data
+/**
+ * Build a multipart/form-data body for the whisper.cpp HTTP server.
+ *
+ * @param {Buffer} wavData - WAV audio buffer to send.
+ * @param {object} options
+ * @param {string[]} options.promptWords - Dictionary words to include as
+ *   a prompt.  Pass an empty array to omit the prompt field entirely.
+ * @returns {{ body: Buffer, contentType: string }}
+ */
+function buildWhisperForm(wavData, { promptWords = [] } = {}) {
   const boundary = `----whisper${Date.now()}`;
   const parts = [];
 
@@ -208,22 +190,70 @@ async function transcribe(wavPath, lang) {
       "0.0\r\n",
   );
 
-  // Prompt (dictionary words)
-  if (merged.length > 0) {
+  // Prompt (dictionary words) — omitted when list is empty
+  if (promptWords.length > 0) {
     parts.push(
       `--${boundary}\r\n` +
         'Content-Disposition: form-data; name="prompt"\r\n\r\n' +
-        merged.join(", ") +
+        promptWords.join(", ") +
         "\r\n",
     );
   }
 
   parts.push(`--${boundary}--\r\n`);
 
-  // Combine parts into a single buffer
   const body = Buffer.concat(
     parts.map((p) => (typeof p === "string" ? Buffer.from(p) : p)),
   );
+
+  return { body, contentType: `multipart/form-data; boundary=${boundary}` };
+}
+
+/**
+ * Transcribe a WAV file via the local whisper.cpp HTTP server.
+ *
+ * @param {string} wavPath - Path to the WAV file on disk.
+ * @param {string} lang   - Language hint passed to the server.
+ * @param {object} [options]
+ * @param {Buffer} [options.rawWav]   - Pre-loaded WAV bytes (skip fs.readFile).
+ * @param {{hasSpeech: boolean, duration: number}} [options.analysis]
+ *   Result of `analyzeWav(rawWav)`.  When provided alongside `rawWav`,
+ *   transcribe() will not re-read or re-analyze the file.  This is the
+ *   path used by the pipeline so a recording is read & analyzed exactly
+ *   once.
+ */
+async function transcribe(wavPath, lang, { rawWav, analysis } = {}) {
+  // --- Pre-transcription audio validation ---
+  // The pipeline analyzes the buffer once and passes the result through;
+  // legacy/standalone callers still get the original behaviour.
+  if (!rawWav) {
+    rawWav = await fs.readFile(wavPath);
+  }
+  const { hasSpeech, duration: audioDuration } = analysis ?? analyzeWav(rawWav);
+
+  if (!hasSpeech) {
+    console.log(
+      `[transcribe] Skipped — audio too short (${audioDuration.toFixed(2)}s) or silent`,
+    );
+    return "";
+  }
+
+  // Trim leading/trailing silence — silent regions at clip boundaries
+  // are the primary trigger for end-of-audio hallucinations.
+  const wavData = trimSilenceWav(rawWav);
+
+  await ensureServer(lang);
+
+  // Build prompt from built-in + user dictionary words.
+  // Skip on very short clips where the prompt biases output toward jargon.
+  const builtIn = defaults.dictionary.builtIn || [];
+  const userWords = store.get("dictionaryWords") || [];
+  const promptWords =
+    audioDuration < PROMPT_MIN_AUDIO_S
+      ? []
+      : [...new Set([...builtIn, ...userWords])];
+
+  const { body, contentType } = buildWhisperForm(wavData, { promptWords });
 
   // Timeout scales with audio length: 5x real-time + 10s base.
   const timeout = Math.max(15000, audioDuration * 5000 + 10000);
@@ -238,9 +268,7 @@ async function transcribe(wavPath, lang) {
   try {
     const response = await fetch(`${getServerUrl()}/inference`, {
       method: "POST",
-      headers: {
-        "Content-Type": `multipart/form-data; boundary=${boundary}`,
-      },
+      headers: { "Content-Type": contentType },
       body,
       signal: controller.signal,
     });
@@ -394,7 +422,21 @@ function stripTrailingHallucinations(text) {
   return result;
 }
 
-function parseOutput(stdout) {
+/**
+ * Parse and clean a whisper output blob.
+ *
+ * @param {string} stdout - Raw whisper output (may include timestamp
+ *   prefixes, bracket tokens, multi-line wrapping).
+ * @param {object} [options]
+ * @param {boolean} [options.exact=true] - When true (full transcription),
+ *   reject the entire output if it exactly matches a known hallucination
+ *   phrase ("thank you", "okay", "yeah", "so", …).  When false (partial
+ *   transcription, used for live preview), skip that exact-match check
+ *   so legitimate single-word partial utterances like "okay" or "so"
+ *   survive.  Structural filtering, repetitive-loop detection, and
+ *   trailing-phrase stripping always run.
+ */
+function parseOutput(stdout, { exact = true } = {}) {
   let text = stdout
     .split("\n")
     .map((l) => l.trim())
@@ -405,7 +447,7 @@ function parseOutput(stdout) {
     .replace(/\(.*?\)/g, "") // strip paren tokens like (music)
     .trim();
 
-  // 1. Structural patterns (brackets-only, punctuation-only)
+  // 1. Structural patterns (brackets-only, punctuation-only) — always.
   if (!text || HALLUCINATION_STRUCTURAL_RE.test(text)) {
     console.log(
       "[transcribe] Filtered hallucination (structural):",
@@ -414,8 +456,10 @@ function parseOutput(stdout) {
     return "";
   }
 
-  // 2. Exact-match hallucinations (entire output is a known phrase)
-  if (HALLUCINATION_EXACT.has(normalizeForHallucinationCheck(text))) {
+  // 2. Exact-match hallucinations (entire output is a known phrase) —
+  //    skipped for partial transcriptions where "okay"/"yeah"/"so" are
+  //    plausible real partial utterances.
+  if (exact && HALLUCINATION_EXACT.has(normalizeForHallucinationCheck(text))) {
     console.log(
       "[transcribe] Filtered hallucination (exact):",
       JSON.stringify(text),
@@ -423,7 +467,7 @@ function parseOutput(stdout) {
     return "";
   }
 
-  // 3. Repetitive loop detection
+  // 3. Repetitive loop detection — always.
   if (isRepetitiveLoop(text)) {
     console.log(
       "[transcribe] Filtered hallucination (repetitive):",
@@ -432,7 +476,7 @@ function parseOutput(stdout) {
     return "";
   }
 
-  // 4. Strip trailing hallucinated phrases from real transcriptions
+  // 4. Strip trailing hallucinated phrases from real transcriptions.
   const stripped = stripTrailingHallucinations(text);
   if (stripped !== text) {
     console.log(
@@ -444,8 +488,10 @@ function parseOutput(stdout) {
     text = stripped;
   }
 
-  // Final check — stripping may have left nothing
-  if (!text || HALLUCINATION_EXACT.has(normalizeForHallucinationCheck(text))) {
+  // Final check — stripping may have left nothing, or left only an
+  // exact-match hallucination (only relevant when exact filtering on).
+  if (!text) return "";
+  if (exact && HALLUCINATION_EXACT.has(normalizeForHallucinationCheck(text))) {
     console.log(
       "[transcribe] Filtered hallucination (post-strip):",
       JSON.stringify(text),
@@ -480,48 +526,29 @@ async function transcribePartial(wavBuffer, lang) {
 
   await ensureServer(lang);
 
-  const boundary = `----whisper${Date.now()}`;
-  const parts = [];
+  // Measure duration for the PROMPT_MIN_AUDIO_S guard (same logic as
+  // transcribe()): skip the dictionary prompt on very short clips where
+  // it dominates context and biases output toward technical jargon.
+  const WAV_HEADER = 44;
+  const BYTES_PER_SAMPLE = 2;
+  const SAMPLE_RATE = 16000;
+  const pcmBytes =
+    wavData.length > WAV_HEADER ? wavData.length - WAV_HEADER : 0;
+  const partialDuration = Math.floor(pcmBytes / BYTES_PER_SAMPLE) / SAMPLE_RATE;
 
-  parts.push(
-    `--${boundary}\r\n` +
-      'Content-Disposition: form-data; name="file"; filename="audio.wav"\r\n' +
-      "Content-Type: audio/wav\r\n\r\n",
-  );
-  parts.push(Buffer.from(wavData.buffer, wavData.byteOffset, wavData.length));
-  parts.push("\r\n");
-
-  parts.push(
-    `--${boundary}\r\n` +
-      'Content-Disposition: form-data; name="response-format"\r\n\r\n' +
-      "text\r\n",
-  );
-
-  // Disable temperature fallback (see transcribe() for rationale).
-  parts.push(
-    `--${boundary}\r\n` +
-      'Content-Disposition: form-data; name="temperature"\r\n\r\n' +
-      "0.0\r\n",
-  );
-
-  // Include dictionary prompt for better accuracy
   const builtIn = defaults.dictionary.builtIn || [];
   const userWords = store.get("dictionaryWords") || [];
-  const merged = [...new Set([...builtIn, ...userWords])];
-  if (merged.length > 0) {
-    parts.push(
-      `--${boundary}\r\n` +
-        'Content-Disposition: form-data; name="prompt"\r\n\r\n' +
-        merged.join(", ") +
-        "\r\n",
-    );
-  }
+  const promptWords =
+    partialDuration < PROMPT_MIN_AUDIO_S
+      ? []
+      : [...new Set([...builtIn, ...userWords])];
 
-  parts.push(`--${boundary}--\r\n`);
-
-  const body = Buffer.concat(
-    parts.map((p) => (typeof p === "string" ? Buffer.from(p) : p)),
+  const audioBuffer = Buffer.from(
+    wavData.buffer,
+    wavData.byteOffset,
+    wavData.length,
   );
+  const { body, contentType } = buildWhisperForm(audioBuffer, { promptWords });
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
@@ -529,16 +556,18 @@ async function transcribePartial(wavBuffer, lang) {
   try {
     const response = await fetch(`${getServerUrl()}/inference`, {
       method: "POST",
-      headers: {
-        "Content-Type": `multipart/form-data; boundary=${boundary}`,
-      },
+      headers: { "Content-Type": contentType },
       body,
       signal: controller.signal,
     });
 
     if (!response.ok) return "";
 
-    const text = parseOutput(await response.text());
+    // Partials are ephemeral live-preview text — skip exact-match
+    // hallucination filtering so plausible single-word partial
+    // utterances ("okay", "yeah", "so") survive.  Structural and
+    // repetitive-loop filtering still run.
+    const text = parseOutput(await response.text(), { exact: false });
     console.log("[transcribe-partial] result:", text);
     return text;
   } finally {
@@ -546,4 +575,11 @@ async function transcribePartial(wavBuffer, lang) {
   }
 }
 
-module.exports = { transcribe, transcribePartial, parseOutput };
+module.exports = {
+  transcribe,
+  transcribePartial,
+  parseOutput,
+  buildWhisperForm,
+  trimSilenceWav,
+  analyzeWav,
+};
