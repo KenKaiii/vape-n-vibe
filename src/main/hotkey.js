@@ -311,6 +311,8 @@ function updateHotkey(hotkey) {
   active = false;
   console.log("[hotkey] Updated:", hotkey, "→", parsed.type);
 
+  if (!callbacks) return;
+
   if (parsed.type === "fn") {
     unregisterSuppression();
     if (process.platform !== "darwin") {

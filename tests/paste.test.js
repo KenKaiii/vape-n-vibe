@@ -10,6 +10,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import childProcess from "node:child_process";
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -40,21 +41,11 @@ require.cache[electronPath] = {
 // Inject fake child_process so simulatePaste() resolves without spawning real
 // OS commands (osascript / powershell / xdotool).
 // ---------------------------------------------------------------------------
-const cpPath = require.resolve("node:child_process");
-const realCp = require.cache[cpPath]?.exports;
-require.cache[cpPath] = {
-  id: cpPath,
-  filename: cpPath,
-  loaded: true,
-  exports: {
-    ...(realCp || {}),
-    execFile: (_cmd, _args, _opts, cb) => {
-      const callback = typeof _opts === "function" ? _opts : cb;
-      // Resolve asynchronously so await ordering is realistic.
-      Promise.resolve().then(() => callback(null, "", ""));
-      return {};
-    },
-  },
+childProcess.execFile = (_cmd, _args, _opts, cb) => {
+  const callback = typeof _opts === "function" ? _opts : cb;
+  // Resolve asynchronously so await ordering is realistic.
+  Promise.resolve().then(() => callback(null, "", ""));
+  return {};
 };
 
 // ---------------------------------------------------------------------------

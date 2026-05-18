@@ -119,7 +119,7 @@
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
     "@eslint/js": "^10.0.1",
-    "electron": "^41.5.0",
+    "electron": "^42.1.0",
     "electron-builder": "^26.8.1",
     "eslint": "^10.3.0",
     "eslint-config-prettier": "^10.1.8",
@@ -128,7 +128,7 @@
     "vitest": "^4.1.5"
   },
   "dependencies": {
-    "electron-store": "^7.0.3",
+    "electron-store": "^11.0.2",
     "electron-updater": "^6.6.2",
     "node-addon-api": "^8.7.0",
     "uiohook-napi": "^1.5.5",
