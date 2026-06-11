@@ -1,3 +1,4 @@
+const fs = require("node:fs");
 const path = require("node:path");
 
 const electron = require("electron");
@@ -62,11 +63,29 @@ function getWhisperBinaryPath() {
 }
 
 /**
- * Whisper server binary path (whisper.cpp HTTP server).
- * Packaged: resolved through app.asar.unpacked/node_modules
- * Dev: node_modules/whisper-node/lib/whisper.cpp/server
+ * Vendored modern whisper.cpp server binary (built by
+ * scripts/build-whisper-server.sh — current upstream whisper.cpp with
+ * flash-attention and built-in Silero VAD, Metal shader embedded).
+ * Returns null if not built.
  */
-function getWhisperServerPath() {
+function getVendoredServerPath() {
+  const binaryName =
+    process.platform === "win32" ? "whisper-server.exe" : "whisper-server";
+  const relativePath = path.join("vendor", "whisper.cpp", binaryName);
+
+  const root = app ? app.getAppPath() : process.cwd();
+  const candidate = isPackaged
+    ? path.join(root.replace("app.asar", "app.asar.unpacked"), relativePath)
+    : path.join(root, relativePath);
+
+  return fs.existsSync(candidate) ? candidate : null;
+}
+
+/**
+ * Legacy whisper.cpp server bundled with whisper-node (old whisper.cpp,
+ * no flash-attention / VAD). Fallback when the vendored binary is absent.
+ */
+function getLegacyServerPath() {
   const binaryName = process.platform === "win32" ? "server.exe" : "server";
   const relativePath = path.join(
     "node_modules",
@@ -84,6 +103,18 @@ function getWhisperServerPath() {
     );
   }
   return path.join(root, relativePath);
+}
+
+/**
+ * Whisper server binary path — prefers the vendored modern build,
+ * falls back to the legacy whisper-node binary.
+ * Returns { bin, modern } so callers can gate flags that only the
+ * modern server understands (--vad, --suppress-nst, …).
+ */
+function getWhisperServer() {
+  const vendored = getVendoredServerPath();
+  if (vendored) return { bin: vendored, modern: true };
+  return { bin: getLegacyServerPath(), modern: false };
 }
 
 /**
@@ -112,6 +143,6 @@ module.exports = {
   getModelsDir,
   getNativeAddonPath,
   getWhisperBinaryPath,
-  getWhisperServerPath,
+  getWhisperServer,
   getWhisperCppDir,
 };

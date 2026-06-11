@@ -11,12 +11,13 @@
     "format:check": "prettier --check .",
     "install": "node -e \"if(process.platform==='darwin')require('child_process').execSync('node-gyp rebuild',{stdio:'inherit'})\"",
     "postinstall": "electron-builder install-app-deps",
-    "prebuild": "cd node_modules/whisper-node/lib/whisper.cpp && make server",
+    "build:whisper": "bash scripts/build-whisper-server.sh",
+    "prebuild": "bash scripts/build-whisper-server.sh",
     "build": "electron-builder --publish never",
     "build:mac": "electron-builder --mac --publish never",
     "build:win": "electron-builder --win --publish never",
     "build:dir": "electron-builder --dir --publish never",
-    "predist": "cd node_modules/whisper-node/lib/whisper.cpp && make server",
+    "predist": "bash scripts/build-whisper-server.sh",
     "dist": "electron-builder --publish always",
     "test": "vitest run"
   },
@@ -44,6 +45,13 @@
         "to": "app.asar.unpacked/build/Release",
         "filter": [
           "*.node"
+        ]
+      },
+      {
+        "from": "vendor/whisper.cpp",
+        "to": "app.asar.unpacked/vendor/whisper.cpp",
+        "filter": [
+          "whisper-server*"
         ]
       }
     ],

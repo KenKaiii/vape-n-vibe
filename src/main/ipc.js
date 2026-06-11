@@ -12,7 +12,7 @@ const {
 } = require("./hotkey");
 const { runPipeline } = require("./pipeline");
 const { restartServer, isReady } = require("./whisper-server");
-const { transcribePartial } = require("./transcribe");
+const { transcribePartial, cancelActivePartial } = require("./transcribe");
 
 const execFileAsync = promisify(execFile);
 
@@ -239,8 +239,12 @@ function registerIpcHandlers(windows) {
   ipcMain.handle("audio-recorded", async (event, wavBuffer) => {
     if (!validateSender(event.senderFrame)) return false;
 
-    // Advance the session ID so any in-flight partial discards its result.
+    // Advance the session ID so any in-flight partial discards its result,
+    // and abort it — the whisper server is single-threaded, so an active
+    // partial would otherwise delay the final transcription by its full
+    // inference time.
     recordingSessionId++;
+    cancelActivePartial();
 
     // Clear overlay text (visualizer mode handled by pipeline)
     sendToOverlay("partial-text", "");

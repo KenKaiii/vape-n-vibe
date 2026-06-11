@@ -173,22 +173,32 @@ function buildWhisperForm(wavData, { promptWords = [] } = {}) {
   parts.push(wavData);
   parts.push("\r\n");
 
-  // Response format
-  parts.push(
-    `--${boundary}\r\n` +
-      'Content-Disposition: form-data; name="response-format"\r\n\r\n' +
-      "text\r\n",
-  );
+  // Response format. The legacy whisper-node server reads
+  // `response-format`; current whisper.cpp servers read
+  // `response_format`. Send both — each server ignores the unknown one.
+  for (const fieldName of ["response-format", "response_format"]) {
+    parts.push(
+      `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="${fieldName}"\r\n\r\n` +
+        "text\r\n",
+    );
+  }
 
-  // Disable temperature fallback. In the bundled whisper.cpp server the
-  // `temperature` form field is wired to wparams.temperature_inc, so
-  // 0.0 means "never retry at higher randomness" — this is the single
-  // biggest lever against end-of-audio hallucinations.
-  parts.push(
-    `--${boundary}\r\n` +
-      'Content-Disposition: form-data; name="temperature"\r\n\r\n' +
-      "0.0\r\n",
-  );
+  // Disable temperature fallback — the single biggest lever against
+  // end-of-audio hallucinations.
+  // Legacy server: the `temperature` field is wired to
+  //   wparams.temperature_inc, so 0.0 means "never retry at higher
+  //   randomness".
+  // Modern server: `temperature` is the actual sampling temperature and
+  //   `temperature_inc` controls fallback — 0.0 for both gives the same
+  //   deterministic, no-fallback behavior.
+  for (const fieldName of ["temperature", "temperature_inc"]) {
+    parts.push(
+      `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="${fieldName}"\r\n\r\n` +
+        "0.0\r\n",
+    );
+  }
 
   // Prompt (dictionary words) — omitted when list is empty
   if (promptWords.length > 0) {
@@ -503,6 +513,21 @@ function parseOutput(stdout, { exact = true } = {}) {
 }
 
 /**
+ * Controller for the in-flight partial request, if any.  The whisper
+ * server processes requests serially, so an in-flight partial blocks
+ * the final transcription — cancelActivePartial() lets the pipeline
+ * abort it the moment recording stops instead of waiting it out.
+ */
+let activePartialController = null;
+
+function cancelActivePartial() {
+  if (activePartialController) {
+    activePartialController.abort();
+    activePartialController = null;
+  }
+}
+
+/**
  * Lightweight partial transcription for live preview during recording.
  * Accepts a raw WAV buffer, POSTs it to the whisper server, and returns
  * text with only structural filtering (no hallucination exact-match
@@ -551,6 +576,7 @@ async function transcribePartial(wavBuffer, lang) {
   const { body, contentType } = buildWhisperForm(audioBuffer, { promptWords });
 
   const controller = new AbortController();
+  activePartialController = controller;
   const timer = setTimeout(() => controller.abort(), 15000);
 
   try {
@@ -570,14 +596,21 @@ async function transcribePartial(wavBuffer, lang) {
     const text = parseOutput(await response.text(), { exact: false });
     console.log("[transcribe-partial] result:", text);
     return text;
+  } catch (err) {
+    if (err.name === "AbortError") return ""; // cancelled — expected
+    throw err;
   } finally {
     clearTimeout(timer);
+    if (activePartialController === controller) {
+      activePartialController = null;
+    }
   }
 }
 
 module.exports = {
   transcribe,
   transcribePartial,
+  cancelActivePartial,
   parseOutput,
   buildWhisperForm,
   trimSilenceWav,

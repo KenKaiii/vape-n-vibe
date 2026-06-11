@@ -5,7 +5,7 @@ const path = require("node:path");
 const os = require("node:os");
 const { app } = require("electron");
 const defaults = require("../config/defaults");
-const { getWhisperServerPath, getWhisperCppDir } = require("../config/paths");
+const { getWhisperServer, getWhisperCppDir } = require("../config/paths");
 
 /**
  * Resolve a writable directory to use as the whisper.cpp server's cwd.
@@ -104,11 +104,17 @@ async function startServer(lang) {
   }
 
   const port = await findFreePort();
-  const serverBin = getWhisperServerPath();
+  const { bin: serverBin, modern } = getWhisperServer();
   const whisperCppDir = getWhisperCppDir();
   const cwd = getServerCwd();
 
   const language = lang || defaults.model.lang;
+
+  // The server defaults to 4 compute threads. On Metal the encoder runs
+  // on GPU, but decode/CPU fallback paths still benefit from more cores.
+  // Leave headroom (cores - 2) and cap at 8 — whisper.cpp scales poorly
+  // beyond that and saturating every core just adds heat.
+  const threads = Math.min(8, Math.max(4, os.availableParallelism() - 2));
 
   const args = [
     "--model",
@@ -133,18 +139,49 @@ async function startServer(lang) {
     // wparams.n_max_text_ctx in the server source.
     "--max-context",
     "0",
+    "--threads",
+    String(threads),
   ];
 
-  console.log("[whisper-server] Starting:", serverBin, args.join(" "));
+  // Flags only the modern (vendored, current whisper.cpp) server
+  // understands — the legacy whisper-node binary rejects unknown args.
+  // Flash attention is on by default in modern builds, no flag needed.
+  if (modern) {
+    // Suppress non-speech tokens (♪, [BLANK_AUDIO], …) at the decoder
+    // level instead of regex-stripping them afterwards.
+    args.push("--suppress-nst");
+
+    // Built-in Silero VAD: extract speech segments before inference.
+    // Cuts decode time on pause-heavy speech and removes the silence
+    // that triggers end-of-audio hallucinations.
+    const vadModelPath = defaults.vadModel?.path;
+    if (vadModelPath && fs.existsSync(vadModelPath)) {
+      args.push("--vad", "--vad-model", vadModelPath);
+    } else {
+      console.log("[whisper-server] VAD model not found — running without VAD");
+    }
+  }
+
+  console.log(
+    `[whisper-server] Starting (${modern ? "modern" : "legacy"}):`,
+    serverBin,
+    args.join(" "),
+  );
 
   const proc = spawn(serverBin, args, {
     cwd,
-    // ggml-metal.m loads ggml-metal.metal from GGML_METAL_PATH_RESOURCES
-    // when set, otherwise falls back to cwd. Since we deliberately moved
-    // cwd away from the whisper.cpp dir (see getServerCwd), point Metal
-    // at the bundled shader explicitly.
-    env: { ...process.env, GGML_METAL_PATH_RESOURCES: whisperCppDir },
+    // Legacy binary: ggml-metal.m loads ggml-metal.metal from
+    // GGML_METAL_PATH_RESOURCES when set, otherwise falls back to cwd.
+    // Since we deliberately moved cwd away from the whisper.cpp dir
+    // (see getServerCwd), point Metal at the bundled shader explicitly.
+    // The modern vendored build embeds the shader (GGML_METAL_EMBED_LIBRARY)
+    // and ignores this variable.
+    env: modern
+      ? process.env
+      : { ...process.env, GGML_METAL_PATH_RESOURCES: whisperCppDir },
     stdio: ["ignore", "pipe", "pipe"],
+    // Don't flash a console window on Windows (no-op elsewhere).
+    windowsHide: true,
   });
 
   // Log server output

@@ -21,6 +21,6 @@ export default [
     },
   },
   {
-    ignores: ["node_modules/", "dist/", "out/", "release/"],
+    ignores: ["node_modules/", "dist/", "out/", "release/", "vendor/"],
   },
 ];
