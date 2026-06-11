@@ -41,18 +41,11 @@ app.whenReady().then(() => {
 
   defaults.resolveModelPaths();
 
-  // Start whisper server if model exists (non-blocking). Fetch the
-  // tiny VAD model first if missing — existing installs already have
-  // the whisper model and never hit the download flow, so this is
-  // where they pick up VAD. Server starts either way.
+  // Start whisper server if model exists (non-blocking)
   if (fs.existsSync(defaults.model.path)) {
-    const { ensureVadModel } = require("./src/main/download");
-    ensureVadModel()
-      .catch(() => {})
-      .then(() => startServer(store.get("language")))
-      .catch((err) => {
-        console.error("[main] Whisper server failed to start:", err.message);
-      });
+    startServer(store.get("language")).catch((err) => {
+      console.error("[main] Whisper server failed to start:", err.message);
+    });
   }
 
   windows.main = createWindow();

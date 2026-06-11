@@ -243,6 +243,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   let freqData = null;
   let vizInterval = null;
   let partialInterval = null;
+  // Live-preview window size in seconds — partials transcribe only the
+  // most recent slice so preview cost stays constant regardless of
+  // total recording length.
+  const PARTIAL_WINDOW_S = 15;
   let stream = null;
   let audioChunks = [];
   let isRecording = false;
@@ -329,18 +333,30 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     source.connect(processor);
 
-    // Send full accumulated audio for live transcription preview every 2s.
-    // Whisper needs several seconds of context to produce useful output,
-    // so we always send the entire buffer — results are display-only in
-    // the overlay.  The final paste happens on stop.
+    // Send a sliding window of recent audio for live transcription
+    // preview every 2s.  Re-transcribing the *entire* accumulated buffer
+    // each tick is quadratic in recording length (a 2-minute recording
+    // would decode ~1 hour of audio in total) — whisper.cpp's own
+    // stream example uses a fixed ~10s window for exactly this reason.
+    // The preview shows only recent speech (live-caption style); the
+    // final paste on stop still transcribes the full recording.
     partialInterval = setInterval(() => {
       if (audioChunks.length === 0) return;
-      const length = audioChunks.reduce((sum, c) => sum + c.length, 0);
-      const pcm = new Float32Array(length);
-      let off = 0;
-      for (const chunk of audioChunks) {
-        pcm.set(chunk, off);
-        off += chunk.length;
+      const maxSamples = 16000 * PARTIAL_WINDOW_S;
+      // Walk chunks from the tail until we have enough samples.
+      let take = 0;
+      let firstChunk = audioChunks.length;
+      while (firstChunk > 0 && take < maxSamples) {
+        firstChunk--;
+        take += audioChunks[firstChunk].length;
+      }
+      const pcm = new Float32Array(Math.min(take, maxSamples));
+      let off = pcm.length;
+      for (let i = audioChunks.length - 1; i >= firstChunk && off > 0; i--) {
+        const chunk = audioChunks[i];
+        const copyLen = Math.min(chunk.length, off);
+        pcm.set(chunk.subarray(chunk.length - copyLen), off - copyLen);
+        off -= copyLen;
       }
       const wavBuf = encodeWav(pcm, 16000);
       window.vapenvibe.sendPartialAudio(wavBuf);

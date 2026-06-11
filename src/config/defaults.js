@@ -16,17 +16,6 @@ const defaults = {
     lang: "auto",
   },
 
-  // VAD model — Silero VAD used by the modern whisper.cpp server to
-  // extract speech segments before inference (faster + fewer
-  // hallucinations on silence). Only used when the vendored
-  // whisper-server binary is present.
-  vadModel: {
-    name: "silero-v6.2.0",
-    file: "ggml-silero-v6.2.0.bin",
-    url: "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin",
-    sha256: "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987",
-  },
-
   // Recording
   recording: {
     muteWhileRecording: true,
@@ -101,10 +90,6 @@ const defaults = {
     const { getModelsDir } = require("./paths");
     defaults.paths.models = getModelsDir();
     defaults.model.path = path.join(defaults.paths.models, defaults.model.file);
-    defaults.vadModel.path = path.join(
-      defaults.paths.models,
-      defaults.vadModel.file,
-    );
   },
 };
 

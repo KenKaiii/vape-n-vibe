@@ -146,20 +146,18 @@ async function startServer(lang) {
   // Flags only the modern (vendored, current whisper.cpp) server
   // understands — the legacy whisper-node binary rejects unknown args.
   // Flash attention is on by default in modern builds, no flag needed.
+  //
+  // Server-side Silero VAD (--vad) is deliberately NOT used: the server
+  // keeps one VAD context across requests without resetting it
+  // (state->vad_context + whisper_vad_detect_speech_no_reset in
+  // whisper.cpp), so VAD time grows ~45ms per request without bound —
+  // measured live at 4.3s→4.7s over ten requests in one session. For an
+  // always-running app that's a leak, and the VAD pass cost more than
+  // its decode savings anyway. Silence handling stays in trimSilenceWav.
   if (modern) {
     // Suppress non-speech tokens (♪, [BLANK_AUDIO], …) at the decoder
     // level instead of regex-stripping them afterwards.
     args.push("--suppress-nst");
-
-    // Built-in Silero VAD: extract speech segments before inference.
-    // Cuts decode time on pause-heavy speech and removes the silence
-    // that triggers end-of-audio hallucinations.
-    const vadModelPath = defaults.vadModel?.path;
-    if (vadModelPath && fs.existsSync(vadModelPath)) {
-      args.push("--vad", "--vad-model", vadModelPath);
-    } else {
-      console.log("[whisper-server] VAD model not found — running without VAD");
-    }
   }
 
   console.log(
