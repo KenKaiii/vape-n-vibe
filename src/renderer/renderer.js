@@ -135,7 +135,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       modelInfo.classList.remove("hidden");
       downloadBtn.classList.add("hidden");
     } else {
-      downloadBtn.textContent = `Download ${engineName()} model`;
+      downloadBtn.textContent = `Download ${engineName()}`;
       tooltipWhisper.textContent = `${engineName()}: not downloaded`;
       modelInfo.classList.remove("hidden");
       downloadBtn.classList.remove("hidden");
