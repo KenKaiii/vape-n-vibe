@@ -1,17 +1,17 @@
-const fs = require("node:fs");
 const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
 const { app, ipcMain, BrowserWindow, systemPreferences } = require("electron");
 const defaults = require("../config/defaults");
 const store = require("./store");
-const { downloadModels } = require("./download");
+const { downloadModels, modelExists } = require("./download");
 const {
   updateHotkey,
   checkAccessibility,
   requestAccessibility,
 } = require("./hotkey");
 const { runPipeline } = require("./pipeline");
-const { restartServer, isReady } = require("./whisper-server");
+const { restartServer, isReady, stopServer } = require("./whisper-server");
+const { stopParakeet } = require("./parakeet");
 const { transcribePartial, cancelActivePartial } = require("./transcribe");
 
 const execFileAsync = promisify(execFile);
@@ -48,10 +48,18 @@ function registerIpcHandlers(windows) {
 
   ipcMain.handle("get-config", (event) => {
     if (!validateSender(event.senderFrame)) return null;
+    const selectedModel = store.get("selectedModel") || defaults.defaultModel;
     return {
-      model: defaults.model.name,
+      model: selectedModel,
+      models: Object.entries(defaults.models).map(([key, m]) => ({
+        key,
+        label: m.label,
+        engine: m.engine,
+        downloaded: modelExists(key),
+      })),
+      selectedModel,
       hotkey: store.get("hotkey"),
-      modelExists: fs.existsSync(defaults.model.path),
+      modelExists: modelExists(selectedModel),
       accessibilityGranted: checkAccessibility(),
       microphoneGranted:
         process.platform !== "darwin" ||
@@ -80,13 +88,49 @@ function registerIpcHandlers(windows) {
       });
     }
 
-    return true;
+    // Tell the renderer when the selected parakeet model can't serve
+    // this language — transcription silently falls back to whisper.
+    const selected = defaults.getModel(
+      store.get("selectedModel") || defaults.defaultModel,
+    );
+    const parakeetUnsupported =
+      selected.engine === "parakeet" &&
+      lang !== "auto" &&
+      !selected.languages.includes(lang);
+
+    return { ok: true, parakeetUnsupported };
   });
 
-  ipcMain.handle("start-downloads", async (event) => {
+  ipcMain.handle("set-model", (event, key) => {
     if (!validateSender(event.senderFrame)) return false;
+    if (typeof key !== "string" || !defaults.models[key]) return false;
+
+    const previous = store.get("selectedModel") || defaults.defaultModel;
+    if (key === previous) return { ok: true, downloaded: modelExists(key) };
+
+    store.set("selectedModel", key);
+
+    // Stop the now-inactive engine to reclaim its memory; the new one
+    // is started lazily on next use (ensureServer/ensureParakeet) or
+    // eagerly here when its files are already on disk.
+    const newEngine = defaults.models[key].engine;
+    if (newEngine !== "whisper") stopServer();
+    if (newEngine !== "parakeet") stopParakeet();
+
+    const downloaded = modelExists(key);
+    if (downloaded) {
+      const { startEngineForModel } = require("./download");
+      startEngineForModel(key);
+    }
+
+    return { ok: true, downloaded };
+  });
+
+  ipcMain.handle("start-downloads", async (event, modelKey) => {
+    if (!validateSender(event.senderFrame)) return false;
+    if (modelKey !== undefined && typeof modelKey !== "string") return false;
     const win = BrowserWindow.fromWebContents(event.sender);
-    await downloadModels(win);
+    await downloadModels(win, modelKey);
     return true;
   });
 

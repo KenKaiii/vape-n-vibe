@@ -4,7 +4,8 @@ contextBridge.exposeInMainWorld("vapenvibe", {
   getConfig: () => ipcRenderer.invoke("get-config"),
   setHotkey: (hotkey) => ipcRenderer.invoke("set-hotkey", hotkey),
   setLanguage: (lang) => ipcRenderer.invoke("set-language", lang),
-  startDownloads: () => ipcRenderer.invoke("start-downloads"),
+  setModel: (key) => ipcRenderer.invoke("set-model", key),
+  startDownloads: (modelKey) => ipcRenderer.invoke("start-downloads", modelKey),
   onDownloadsProgress: (cb) => {
     const handler = (_e, pct) => cb(pct);
     ipcRenderer.on("downloads-progress", handler);

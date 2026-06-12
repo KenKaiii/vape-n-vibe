@@ -3,6 +3,45 @@ const defaults = require("../config/defaults");
 const store = require("./store");
 const { ensureServer, getServerUrl } = require("./whisper-server");
 
+/**
+ * Resolve the model that should actually handle a transcription.
+ * Reads the selected model from the store and applies auto-fallback to
+ * whisper when parakeet can't serve the request:
+ *   - the configured language is outside parakeet's supported set, or
+ *   - the parakeet model files are not downloaded.
+ * @param {string} [lang] - Language override (defaults to the stored one).
+ * @returns {{ key: string, model: object }}
+ */
+function getActiveModel(lang) {
+  const selected = store.get("selectedModel");
+  const key =
+    selected && defaults.models[selected] ? selected : defaults.defaultModel;
+  const model = defaults.models[key];
+
+  if (model.engine === "parakeet") {
+    const { modelExists } = require("./download");
+    const language = lang || store.get("language");
+    if (
+      language &&
+      language !== "auto" &&
+      !model.languages.includes(language)
+    ) {
+      console.log(
+        `[transcribe] Language "${language}" unsupported by parakeet — falling back to whisper`,
+      );
+      return defaults.getModelByEngine("whisper");
+    }
+    if (!modelExists(key)) {
+      console.log(
+        "[transcribe] Parakeet files missing — falling back to whisper",
+      );
+      return defaults.getModelByEngine("whisper");
+    }
+  }
+
+  return { key, model };
+}
+
 /** Minimum audio duration in seconds to bother transcribing. */
 const MIN_AUDIO_DURATION_S = 0.5;
 
@@ -252,6 +291,18 @@ async function transcribe(wavPath, lang, { rawWav, analysis } = {}) {
   // are the primary trigger for end-of-audio hallucinations.
   const wavData = trimSilenceWav(rawWav);
 
+  const active = getActiveModel(lang);
+  if (active.model.engine === "parakeet") {
+    const parakeet = require("./parakeet");
+    console.log(
+      `[transcribe] Parakeet decode (${Math.round(audioDuration)}s audio)`,
+    );
+    const raw = await parakeet.transcribeWav(wavData);
+    const text = parseOutput(raw, { engine: "parakeet" });
+    console.log("[transcribe] result:", text);
+    return text;
+  }
+
   await ensureServer(lang);
 
   // Build prompt from built-in + user dictionary words.
@@ -445,8 +496,15 @@ function stripTrailingHallucinations(text) {
  *   so legitimate single-word partial utterances like "okay" or "so"
  *   survive.  Structural filtering, repetitive-loop detection, and
  *   trailing-phrase stripping always run.
+ * @param {string} [options.engine="whisper"] - Producing engine.  For
+ *   "parakeet" the whisper-specific exact-match set and trailing-phrase
+ *   stripping are skipped entirely: transducers don't fabricate
+ *   YouTube-outro hallucinations, so stripping a genuine "thanks"/"bye"
+ *   would be a regression.  Structural and repetitive-loop filtering
+ *   still run.
  */
-function parseOutput(stdout, { exact = true } = {}) {
+function parseOutput(stdout, { exact = true, engine = "whisper" } = {}) {
+  const whisperFilters = engine === "whisper";
   let text = stdout
     .split("\n")
     .map((l) => l.trim())
@@ -468,8 +526,12 @@ function parseOutput(stdout, { exact = true } = {}) {
 
   // 2. Exact-match hallucinations (entire output is a known phrase) —
   //    skipped for partial transcriptions where "okay"/"yeah"/"so" are
-  //    plausible real partial utterances.
-  if (exact && HALLUCINATION_EXACT.has(normalizeForHallucinationCheck(text))) {
+  //    plausible real partial utterances, and for parakeet output.
+  if (
+    whisperFilters &&
+    exact &&
+    HALLUCINATION_EXACT.has(normalizeForHallucinationCheck(text))
+  ) {
     console.log(
       "[transcribe] Filtered hallucination (exact):",
       JSON.stringify(text),
@@ -486,7 +548,10 @@ function parseOutput(stdout, { exact = true } = {}) {
     return "";
   }
 
-  // 4. Strip trailing hallucinated phrases from real transcriptions.
+  // 4. Strip trailing hallucinated phrases from real transcriptions —
+  //    whisper only (see `engine` option above).
+  if (!whisperFilters) return text;
+
   const stripped = stripTrailingHallucinations(text);
   if (stripped !== text) {
     console.log(
@@ -548,6 +613,20 @@ async function transcribePartial(wavBuffer, lang) {
 
   const { hasSpeech } = analyzeWav(wavData);
   if (!hasSpeech) return "";
+
+  const active = getActiveModel(lang);
+  if (active.model.engine === "parakeet") {
+    // Parakeet decode can't be aborted mid-flight, but it's fast enough
+    // that stale results are simply discarded via the session-ID pattern
+    // in ipc.js.  Dictionary prompts are unsupported by the engine.
+    const parakeet = require("./parakeet");
+    const raw = await parakeet.transcribeWav(
+      Buffer.from(wavData.buffer, wavData.byteOffset, wavData.length),
+    );
+    const text = parseOutput(raw, { exact: false, engine: "parakeet" });
+    console.log("[transcribe-partial] result:", text);
+    return text;
+  }
 
   await ensureServer(lang);
 
@@ -611,6 +690,7 @@ module.exports = {
   transcribe,
   transcribePartial,
   cancelActivePartial,
+  getActiveModel,
   parseOutput,
   buildWhisperForm,
   trimSilenceWav,

@@ -111,10 +111,16 @@ main {
   border-radius: 6px;
   color: #fff;
   font-size: 12px;
-  padding: 4px 8px;
+  padding: 4px 24px 4px 8px;
   outline: none;
   cursor: pointer;
   max-width: 180px;
+  /* Native chevron renders flush against the right edge — draw our own
+     with breathing room instead. */
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'><path d='M0 0l4 5 4-5z' fill='%23999'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
 }
 
 .mic-select:hover {
@@ -141,9 +147,10 @@ footer {
   gap: 4px;
 }
 
-.model-label {
+.model-select {
   font-size: 11px;
-  color: #666;
+  padding: 3px 22px 3px 8px;
+  background-position: right 7px center;
 }
 
 .model-info-icon {

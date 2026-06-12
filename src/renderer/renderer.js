@@ -9,14 +9,21 @@ window.addEventListener("DOMContentLoaded", async () => {
   const downloadProgress = document.getElementById("download-progress");
   const micSelect = document.getElementById("mic-select");
   const langSelect = document.getElementById("lang-select");
+  const modelSelect = document.getElementById("model-select");
+  const dictionaryHint = document.getElementById("dictionary-hint");
   const updateBtn = document.getElementById("update-btn");
   const versionBadge = document.getElementById("version-badge");
   const restartBtn = document.getElementById("restart-btn");
 
   // --- Language selector ---
   langSelect.value = config.language;
-  langSelect.addEventListener("change", () => {
-    window.vapenvibe.setLanguage(langSelect.value);
+  langSelect.addEventListener("change", async () => {
+    const res = await window.vapenvibe.setLanguage(langSelect.value);
+    if (res && res.parakeetUnsupported) {
+      console.warn(
+        "[renderer] Language unsupported by Parakeet — Whisper will be used",
+      );
+    }
   });
 
   // --- Hotkey display ---
@@ -101,22 +108,67 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
 
   // --- Model state ---
+  const modelList = config.models || [];
+  let selectedModel = config.selectedModel || config.model;
   let modelsReady = config.modelExists;
+
+  function getSelectedModelMeta() {
+    return modelList.find((m) => m.key === selectedModel) || null;
+  }
+
+  function engineName() {
+    const meta = getSelectedModelMeta();
+    return meta && meta.engine === "parakeet" ? "Parakeet" : "Whisper";
+  }
+
+  function updateDictionaryHint() {
+    const meta = getSelectedModelMeta();
+    dictionaryHint.classList.toggle(
+      "hidden",
+      !(meta && meta.engine === "parakeet"),
+    );
+  }
 
   function updateFooter() {
     if (modelsReady) {
-      tooltipWhisper.textContent = `Whisper: ${config.model}`;
+      tooltipWhisper.textContent = `${engineName()}: ${selectedModel}`;
       modelInfo.classList.remove("hidden");
       downloadBtn.classList.add("hidden");
     } else {
-      downloadBtn.textContent = "Download Whisper model";
-      tooltipWhisper.textContent = "Whisper: not downloaded";
+      downloadBtn.textContent = `Download ${engineName()} model`;
+      tooltipWhisper.textContent = `${engineName()}: not downloaded`;
       modelInfo.classList.remove("hidden");
       downloadBtn.classList.remove("hidden");
     }
   }
 
+  // --- Model selector ---
+  modelSelect.innerHTML = "";
+  modelList.forEach((m) => {
+    const option = document.createElement("option");
+    option.value = m.key;
+    option.textContent = m.label;
+    if (m.key === selectedModel) option.selected = true;
+    modelSelect.appendChild(option);
+  });
+
+  modelSelect.addEventListener("change", async () => {
+    const key = modelSelect.value;
+    const res = await window.vapenvibe.setModel(key);
+    if (!res || res.ok !== true) {
+      modelSelect.value = selectedModel;
+      return;
+    }
+    selectedModel = key;
+    modelsReady = res.downloaded;
+    const meta = getSelectedModelMeta();
+    if (meta) meta.downloaded = res.downloaded;
+    updateFooter();
+    updateDictionaryHint();
+  });
+
   updateFooter();
+  updateDictionaryHint();
 
   // --- Downloads ---
   downloadBtn.addEventListener("click", async () => {
@@ -124,7 +176,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     downloadProgress.classList.remove("hidden");
     downloadProgress.textContent = "Downloading\u2026 0%";
     try {
-      await window.vapenvibe.startDownloads();
+      await window.vapenvibe.startDownloads(selectedModel);
     } catch (err) {
       console.error("[renderer] Download failed:", err);
       downloadProgress.classList.add("hidden");
@@ -140,6 +192,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   window.vapenvibe.onDownloadsComplete(() => {
     downloadProgress.classList.add("hidden");
     modelsReady = true;
+    const meta = getSelectedModelMeta();
+    if (meta) meta.downloaded = true;
     updateFooter();
     showRestartBtn();
   });

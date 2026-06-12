@@ -58,6 +58,9 @@
     "asarUnpack": [
       "node_modules/whisper-node/**",
       "node_modules/uiohook-napi/**",
+      "node_modules/sherpa-onnx-node/**",
+      "node_modules/sherpa-onnx-darwin-arm64/**",
+      "node_modules/sherpa-onnx-win-x64/**",
       "build/Release/*.node"
     ],
     "mac": {
@@ -141,6 +144,7 @@
     "electron-store": "^11.0.2",
     "electron-updater": "^6.6.2",
     "node-addon-api": "^8.7.0",
+    "sherpa-onnx-node": "^1.13.2",
     "uiohook-napi": "^1.5.5",
     "whisper-node": "^1.1.1"
   }

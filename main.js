@@ -1,4 +1,3 @@
-const fs = require("node:fs");
 const path = require("node:path");
 const { app, BrowserWindow, ipcMain } = require("electron");
 const { createWindow, createOverlay } = require("./src/main/window");
@@ -14,7 +13,8 @@ const {
 } = require("./src/main/ipc");
 const { createTray } = require("./src/main/tray");
 const store = require("./src/main/store");
-const { startServer, stopServer } = require("./src/main/whisper-server");
+const { stopServer } = require("./src/main/whisper-server");
+const { modelExists, startEngineForModel } = require("./src/main/download");
 
 // --- Global error handlers ---
 process.on("unhandledRejection", (reason) => {
@@ -41,11 +41,10 @@ app.whenReady().then(() => {
 
   defaults.resolveModelPaths();
 
-  // Start whisper server if model exists (non-blocking)
-  if (fs.existsSync(defaults.model.path)) {
-    startServer(store.get("language")).catch((err) => {
-      console.error("[main] Whisper server failed to start:", err.message);
-    });
+  // Start the selected model's engine if its files exist (non-blocking)
+  const selectedModel = store.get("selectedModel") || defaults.defaultModel;
+  if (modelExists(selectedModel)) {
+    startEngineForModel(selectedModel);
   }
 
   windows.main = createWindow();

@@ -32,4 +32,9 @@ module.exports = {
     register: () => true,
     unregister: () => {},
   },
+  utilityProcess: {
+    fork: () => {
+      throw new Error("utilityProcess.fork not available in tests");
+    },
+  },
 };

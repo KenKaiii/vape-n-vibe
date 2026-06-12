@@ -2,11 +2,34 @@ import { describe, it, expect } from "vitest";
 import defaults from "../src/config/defaults";
 
 describe("defaults", () => {
-  it("has model config with required fields", () => {
-    expect(defaults.model.name).toBeDefined();
-    expect(defaults.model.file).toBeDefined();
-    expect(defaults.model.url).toBeDefined();
-    expect(defaults.model.url).toMatch(/^https:\/\//);
+  it("has a model registry with required fields", () => {
+    expect(Object.keys(defaults.models).length).toBeGreaterThan(0);
+    for (const [key, model] of Object.entries(defaults.models)) {
+      expect(key).toBeTruthy();
+      expect(model.engine).toMatch(/^(whisper|parakeet)$/);
+      expect(model.label).toBeDefined();
+      expect(model.files.length).toBeGreaterThan(0);
+      for (const f of model.files) {
+        expect(f.file).toBeDefined();
+        expect(f.url).toMatch(/^https:\/\//);
+      }
+    }
+  });
+
+  it("has a default model present in the registry", () => {
+    expect(defaults.models[defaults.defaultModel]).toBeDefined();
+  });
+
+  it("getModel falls back to the default model on unknown keys", () => {
+    expect(defaults.getModel("nope")).toBe(
+      defaults.models[defaults.defaultModel],
+    );
+  });
+
+  it("getModelByEngine finds the whisper entry", () => {
+    const entry = defaults.getModelByEngine("whisper");
+    expect(entry.key).toBe("whisper-large-v3-turbo-q5");
+    expect(entry.model.engine).toBe("whisper");
   });
 
   it("has recording config with correct values", () => {
@@ -26,12 +49,15 @@ describe("defaults", () => {
     }
   });
 
-  it("has model sha256 hash for integrity verification", () => {
-    expect(defaults.model.sha256).toBeDefined();
-    expect(defaults.model.sha256).toMatch(/^[a-f0-9]{64}$/);
+  it("has sha256 hashes for every model file", () => {
+    for (const model of Object.values(defaults.models)) {
+      for (const f of model.files) {
+        expect(f.sha256).toMatch(/^[a-f0-9]{64}$/);
+      }
+    }
   });
 
-  it("has model language default", () => {
-    expect(defaults.model.lang).toBe("auto");
+  it("has whisper language default", () => {
+    expect(defaults.getModelByEngine("whisper").model.lang).toBe("auto");
   });
 });

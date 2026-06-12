@@ -14,5 +14,8 @@ export default defineConfig({
   test: {
     globals: false,
     restoreMocks: true,
+    // vendor/ contains gitignored upstream whisper.cpp sources whose own
+    // test specs can't run here — keep vitest scoped to project tests.
+    include: ["tests/**/*.test.js"],
   },
 });

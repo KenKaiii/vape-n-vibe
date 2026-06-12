@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' blob:; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; media-src 'self'"
+      content="default-src 'self'; script-src 'self' blob:; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; media-src 'self'; img-src 'self' data:"
     />
     <title>Vape 'n' Vibe</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -61,6 +61,9 @@
       <div class="setting">
         <label class="setting-label">Dictionary</label>
         <div class="setting-right">
+          <span class="dictionary-count hidden" id="dictionary-hint"
+            >Whisper only</span
+          >
           <span class="dictionary-count" id="dictionary-count"></span>
           <button class="setting-btn" id="dictionary-btn">Edit</button>
         </div>
@@ -87,8 +90,8 @@
     </main>
     <footer>
       <div class="footer-left">
+        <select class="mic-select model-select" id="model-select"></select>
         <span class="model-info hidden" id="model-info">
-          <span class="model-label">Model</span>
           <span class="model-info-icon" id="model-info-icon"
             >i
             <span class="model-tooltip" id="model-tooltip">

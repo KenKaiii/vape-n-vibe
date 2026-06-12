@@ -91,7 +91,8 @@ function waitForReady(port, timeoutMs) {
 async function startServer(lang) {
   if (serverProcess) return;
 
-  const modelPath = defaults.model.path;
+  const whisperEntry = defaults.getModelByEngine("whisper");
+  const modelPath = whisperEntry?.model.files[0]?.path;
   if (!modelPath) {
     throw new Error("No whisper model path configured");
   }
@@ -108,7 +109,7 @@ async function startServer(lang) {
   const whisperCppDir = getWhisperCppDir();
   const cwd = getServerCwd();
 
-  const language = lang || defaults.model.lang;
+  const language = lang || whisperEntry.model.lang;
 
   // The server defaults to 4 compute threads. On Metal the encoder runs
   // on GPU, but decode/CPU fallback paths still benefit from more cores.

@@ -9,6 +9,7 @@ const store = new Store({
   defaults: {
     hotkey: defaults.hotkey,
     language: "auto",
+    selectedModel: defaults.defaultModel,
     dictionaryWords: [],
   },
 });
