@@ -96,9 +96,11 @@ app.whenReady().then(() => {
   });
 
   // Reset recording state if renderer fails to start recording
-  ipcMain.on("recording-error", (event) => {
+  ipcMain.on("recording-error", (event, detail) => {
     if (!validateSender(event.senderFrame)) return;
-    console.warn("[main] Renderer reported recording error, resetting state");
+    console.warn(
+      `[main] Renderer reported recording error, resetting state${detail ? ` (${detail})` : ""}`,
+    );
     recording = false;
     sendToOverlay("viz-mode", "idle");
   });

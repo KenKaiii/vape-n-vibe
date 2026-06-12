@@ -33,7 +33,7 @@ contextBridge.exposeInMainWorld("vapenvibe", {
     ipcRenderer.on("partial-text", handler);
     return () => ipcRenderer.removeListener("partial-text", handler);
   },
-  sendRecordingError: () => ipcRenderer.send("recording-error"),
+  sendRecordingError: (detail) => ipcRenderer.send("recording-error", detail),
   onTranscriptionStatus: (cb) => {
     const handler = (_e, status) => cb(status);
     ipcRenderer.on("transcription-status", handler);

@@ -251,13 +251,35 @@ window.addEventListener("DOMContentLoaded", async () => {
   let audioChunks = [];
   let isRecording = false;
 
+  async function createAudioContext() {
+    const ctx = new AudioContext({ sampleRate: 16000 });
+    await ctx.audioWorklet.addModule("audio-worklet-processor.js");
+    return ctx;
+  }
+
   async function ensureAudioContext() {
-    if (!audioContext) {
-      audioContext = new AudioContext({ sampleRate: 16000 });
-      await audioContext.audioWorklet.addModule("audio-worklet-processor.js");
+    // A cached context can end up "closed" (Chromium audio service
+    // crash, device wedge) — resume() then throws InvalidStateError on
+    // every subsequent recording attempt, permanently. Rebuild instead.
+    if (audioContext && audioContext.state === "closed") {
+      audioContext = null;
     }
-    if (audioContext.state === "suspended") {
-      await audioContext.resume();
+    if (!audioContext) {
+      audioContext = await createAudioContext();
+    }
+    if (audioContext.state !== "running") {
+      try {
+        await audioContext.resume();
+      } catch {
+        // resume() failed — context is wedged. Rebuild once from scratch.
+        try {
+          await audioContext.close();
+        } catch {
+          // already closed
+        }
+        audioContext = await createAudioContext();
+        await audioContext.resume();
+      }
     }
   }
 
@@ -287,7 +309,15 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
     analyser = null;
     freqData = null;
-    if (audioContext) await audioContext.suspend();
+    if (audioContext) {
+      try {
+        await audioContext.suspend();
+      } catch {
+        // suspend() throws on a closed context — if teardown is running
+        // from the error path, the context may already be dead. Never
+        // let that mask the original failure or skip sendRecordingError.
+      }
+    }
   }
 
   async function startRecording() {
@@ -441,7 +471,9 @@ window.addEventListener("DOMContentLoaded", async () => {
         isRecording = false;
         shortcutEl.classList.remove("recording");
         await teardownRecording();
-        window.vapenvibe.sendRecordingError();
+        // Include error details — the renderer console isn't visible in
+        // the main process log, so this is the only diagnosable trace.
+        window.vapenvibe.sendRecordingError(`${err.name}: ${err.message}`);
       });
   });
 
