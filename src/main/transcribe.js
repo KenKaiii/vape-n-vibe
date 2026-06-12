@@ -143,6 +143,121 @@ function trimSilenceWav(wavData) {
 }
 
 /**
+ * Maximum chunk length fed to parakeet in one decode.  Sherpa-onnx's
+ * offline transducer recipes (LocalAI, sokuji, the official
+ * sherpa-onnx-vad-with-offline-asr example) all cap speech segments at
+ * 20s before decoding — the full-attention encoder degrades and
+ * balloons memory on longer inputs.
+ */
+const PARAKEET_MAX_CHUNK_S = 20;
+
+/**
+ * When picking a split point, search for the quietest 50ms segment in
+ * the window [maxChunk - LOOKBACK, maxChunk] so chunks break at pauses
+ * between words instead of mid-syllable.
+ */
+const PARAKEET_SPLIT_LOOKBACK_S = 8;
+
+/**
+ * Skip parakeet *partial* (live-preview) decodes past this duration.
+ * Parakeet decodes are blocking and non-abortable, so a long in-flight
+ * partial would delay the final transcription by its full inference
+ * time.  Whisper partials are unaffected (abortable HTTP requests).
+ */
+const PARAKEET_PARTIAL_MAX_S = 20;
+
+/**
+ * Slice a PCM byte range out of a WAV buffer into a standalone WAV
+ * buffer with corrected RIFF/data chunk sizes.
+ */
+function sliceWav(wavData, startByte, endByte) {
+  const WAV_HEADER = 44;
+  const len = endByte - startByte;
+  const out = Buffer.alloc(WAV_HEADER + len);
+  const src = Buffer.isBuffer(wavData) ? wavData : Buffer.from(wavData);
+  src.copy(out, 0, 0, WAV_HEADER);
+  src.copy(out, WAV_HEADER, WAV_HEADER + startByte, WAV_HEADER + endByte);
+  out.writeUInt32LE(36 + len, 4);
+  out.writeUInt32LE(len, 40);
+  return out;
+}
+
+/**
+ * Split a 16kHz mono PCM16 WAV buffer into chunks of at most
+ * `maxChunkS` seconds, breaking at the quietest 50ms RMS segment within
+ * the lookback window before each limit.  Returns [wavData] unchanged
+ * when the audio already fits in one chunk.
+ *
+ * This is the no-extra-model stand-in for the Silero VAD segmentation
+ * that sherpa-onnx projects use ahead of OfflineRecognizer: same ≤20s
+ * ceiling, silence-seeking split points, but reusing the RMS scan we
+ * already trust in trimSilenceWav/analyzeWav.
+ */
+function chunkWavOnSilence(wavData, maxChunkS = PARAKEET_MAX_CHUNK_S) {
+  const WAV_HEADER = 44;
+  const SAMPLE_RATE = 16000;
+  const BYTES_PER_SAMPLE = 2;
+
+  if (wavData.length <= WAV_HEADER) return [wavData];
+
+  const pcmBytes = wavData.length - WAV_HEADER;
+  const segmentSamples = Math.floor((SAMPLE_RATE * SEGMENT_MS) / 1000);
+  const segmentBytes = segmentSamples * BYTES_PER_SAMPLE;
+  const numSegs = Math.floor(pcmBytes / segmentBytes);
+  const maxChunkSegs = Math.floor((maxChunkS * 1000) / SEGMENT_MS);
+
+  if (numSegs <= maxChunkSegs) return [wavData];
+
+  const pcm = Buffer.from(
+    wavData.buffer,
+    wavData.byteOffset + WAV_HEADER,
+    pcmBytes,
+  );
+
+  // Precompute per-segment RMS once.
+  const rmsBySeg = new Float64Array(numSegs);
+  for (let s = 0; s < numSegs; s++) {
+    let sumSq = 0;
+    const base = s * segmentBytes;
+    for (let i = 0; i < segmentSamples; i++) {
+      const sample = pcm.readInt16LE(base + i * BYTES_PER_SAMPLE);
+      sumSq += sample * sample;
+    }
+    rmsBySeg[s] = Math.sqrt(sumSq / segmentSamples);
+  }
+
+  const lookbackSegs = Math.floor(
+    (PARAKEET_SPLIT_LOOKBACK_S * 1000) / SEGMENT_MS,
+  );
+  const chunks = [];
+  let startSeg = 0;
+
+  while (numSegs - startSeg > maxChunkSegs) {
+    const limitSeg = startSeg + maxChunkSegs; // exclusive upper bound
+    const searchFrom = Math.max(startSeg + 1, limitSeg - lookbackSegs);
+
+    // Quietest segment in the lookback window — split before it.
+    let splitSeg = limitSeg;
+    let quietest = Infinity;
+    for (let s = searchFrom; s < limitSeg; s++) {
+      if (rmsBySeg[s] < quietest) {
+        quietest = rmsBySeg[s];
+        splitSeg = s;
+      }
+    }
+
+    chunks.push(
+      sliceWav(wavData, startSeg * segmentBytes, splitSeg * segmentBytes),
+    );
+    startSeg = splitSeg;
+  }
+
+  // Final remainder — include any trailing partial segment bytes.
+  chunks.push(sliceWav(wavData, startSeg * segmentBytes, pcmBytes));
+  return chunks;
+}
+
+/**
  * Check if a WAV buffer (16-bit PCM mono) contains enough speech to
  * be worth transcribing.  Returns { hasSpeech, duration } so callers
  * can short-circuit before hitting Whisper.
@@ -294,11 +409,21 @@ async function transcribe(wavPath, lang, { rawWav, analysis } = {}) {
   const active = getActiveModel(lang);
   if (active.model.engine === "parakeet") {
     const parakeet = require("./parakeet");
+    // Sherpa-onnx offline transducers degrade past ~20s of input —
+    // split long recordings at silence and decode sequentially.
+    const chunks = chunkWavOnSilence(wavData);
     console.log(
-      `[transcribe] Parakeet decode (${Math.round(audioDuration)}s audio)`,
+      `[transcribe] Parakeet decode (${Math.round(audioDuration)}s audio, ${chunks.length} chunk${chunks.length === 1 ? "" : "s"})`,
     );
-    const raw = await parakeet.transcribeWav(wavData);
-    const text = parseOutput(raw, { engine: "parakeet" });
+    const parts = [];
+    for (const chunk of chunks) {
+      // Sequential by design: the worker is single-threaded and decodes
+      // are blocking — parallel postMessage would just queue anyway.
+      const raw = await parakeet.transcribeWav(chunk);
+      const part = parseOutput(raw, { engine: "parakeet" });
+      if (part) parts.push(part);
+    }
+    const text = parts.join(" ");
     console.log("[transcribe] result:", text);
     return text;
   }
@@ -611,14 +736,17 @@ async function transcribePartial(wavBuffer, lang) {
               ),
         );
 
-  const { hasSpeech } = analyzeWav(wavData);
+  const { hasSpeech, duration } = analyzeWav(wavData);
   if (!hasSpeech) return "";
 
   const active = getActiveModel(lang);
   if (active.model.engine === "parakeet") {
-    // Parakeet decode can't be aborted mid-flight, but it's fast enough
-    // that stale results are simply discarded via the session-ID pattern
-    // in ipc.js.  Dictionary prompts are unsupported by the engine.
+    // Parakeet decodes are blocking and non-abortable — past this
+    // duration an in-flight partial would stall the final transcription
+    // behind it, so skip live preview entirely on long recordings.
+    if (duration > PARAKEET_PARTIAL_MAX_S) return "";
+    // Stale results are discarded via the session-ID pattern in ipc.js.
+    // Dictionary prompts are unsupported by the engine.
     const parakeet = require("./parakeet");
     const raw = await parakeet.transcribeWav(
       Buffer.from(wavData.buffer, wavData.byteOffset, wavData.length),
@@ -694,5 +822,6 @@ module.exports = {
   parseOutput,
   buildWhisperForm,
   trimSilenceWav,
+  chunkWavOnSilence,
   analyzeWav,
 };
