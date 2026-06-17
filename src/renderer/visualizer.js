@@ -10,30 +10,8 @@ let freqData = null;
 let smoothBars = new Float32Array(barCount);
 let fadeAlpha = 0;
 let targetAlpha = 0;
-let smokeTime = 0;
+let loaderAngle = 0;
 let loopRunning = false;
-
-// --- Smoke particle system ---
-const smokeParticles = [];
-const MAX_SMOKE = 24;
-const MARGIN = 6; // keep particles this far from canvas edge
-
-function createSmokeParticle() {
-  const angle = Math.random() * Math.PI * 2;
-  const dist = Math.random() * 2;
-  return {
-    x: cx + Math.cos(angle) * dist,
-    y: cy + Math.sin(angle) * dist,
-    vx: (Math.random() - 0.5) * 0.12,
-    vy: -Math.random() * 0.25 - 0.1,
-    size: Math.random() * 2 + 2,
-    life: 1,
-    decay: Math.random() * 0.018 + 0.016,
-    rot: Math.random() * Math.PI * 2,
-    rotSpeed: (Math.random() - 0.5) * 0.02,
-    growRate: Math.random() * 0.04 + 0.02,
-  };
-}
 
 function startLoop() {
   if (!loopRunning) {
@@ -58,7 +36,7 @@ function draw() {
   if (mode === "recording") {
     drawWaveform();
   } else if (mode === "processing") {
-    drawSmoke();
+    drawLoader();
   }
 
   ctx.globalAlpha = 1;
@@ -109,78 +87,31 @@ function drawWaveform() {
   ctx.fill();
 }
 
-function drawSmoke() {
-  smokeTime += 0.016;
+function drawLoader() {
+  loaderAngle += 0.12;
+  const radius = baseRadius + 4;
+  const lineWidth = 3;
 
-  // Emit new particles
-  if (smokeParticles.length < MAX_SMOKE && Math.random() < 0.4) {
-    smokeParticles.push(createSmokeParticle());
-  }
-
-  // Faint glow at center (warm white ember)
-  const emberPulse = 0.25 + Math.sin(smokeTime * 2.5) * 0.1;
-  const emberGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 6);
-  emberGrad.addColorStop(0, `rgba(255, 255, 255, ${emberPulse})`);
-  emberGrad.addColorStop(0.6, `rgba(200, 200, 200, ${emberPulse * 0.3})`);
-  emberGrad.addColorStop(1, "transparent");
-  ctx.fillStyle = emberGrad;
-  ctx.fillRect(cx - 6, cy - 6, 12, 12);
-
-  // Update and draw particles
-  ctx.globalCompositeOperation = "lighter";
-  for (let i = smokeParticles.length - 1; i >= 0; i--) {
-    const p = smokeParticles[i];
-
-    // Turbulence — wispy sine-wave drift
-    const turbX = Math.sin(p.y * 0.1 + smokeTime * 1.5) * 0.06;
-    const turbY = Math.cos(p.x * 0.1 + smokeTime * 1.2) * 0.03;
-    p.vx += turbX;
-    p.vy += turbY - 0.003;
-
-    // Damping
-    p.vx *= 0.96;
-    p.vy *= 0.96;
-
-    p.x += p.vx;
-    p.y += p.vy;
-    p.rot += p.rotSpeed;
-    p.size += p.growRate;
-    p.life -= p.decay;
-
-    // Clamp to canvas bounds
-    const r = p.size;
-    p.x = Math.max(MARGIN + r, Math.min(canvas.width - MARGIN - r, p.x));
-    p.y = Math.max(MARGIN + r, Math.min(canvas.height - MARGIN - r, p.y));
-
-    if (p.life <= 0) {
-      smokeParticles.splice(i, 1);
-      continue;
-    }
-
-    // Fade curve: quick fade-in, slow fade-out
-    const alpha =
-      p.life < 0.3 ? p.life / 0.3 : Math.min(1, (1 - p.life) / 0.15);
-    const radius = p.size;
-
-    ctx.save();
-    ctx.translate(p.x, p.y);
-    ctx.rotate(p.rot);
-
-    // Smoke gradient (white core → gray edge)
-    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
-    grad.addColorStop(0, `rgba(220, 220, 220, ${alpha * 0.4})`);
-    grad.addColorStop(0.4, `rgba(160, 160, 160, ${alpha * 0.2})`);
-    grad.addColorStop(1, "transparent");
-    ctx.fillStyle = grad;
-    ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-    ctx.restore();
-  }
-  ctx.globalCompositeOperation = "source-over";
-
-  // Small center dot
+  // Outer rotating arc
   ctx.beginPath();
-  ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
-  ctx.fillStyle = `rgba(200, 200, 200, ${0.3 + Math.sin(smokeTime * 3) * 0.15})`;
+  ctx.arc(cx, cy, radius, loaderAngle, loaderAngle + Math.PI * 1.3);
+  ctx.strokeStyle = "rgba(255, 68, 68, 0.9)";
+  ctx.lineWidth = lineWidth;
+  ctx.lineCap = "round";
+  ctx.stroke();
+
+  // Inner counter-rotating arc
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius - 6, -loaderAngle * 1.4, -loaderAngle * 1.4 + Math.PI);
+  ctx.strokeStyle = "rgba(255, 68, 68, 0.45)";
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  ctx.stroke();
+
+  // Center dot
+  ctx.beginPath();
+  ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255, 68, 68, 0.7)";
   ctx.fill();
 }
 
@@ -197,8 +128,7 @@ window.vizBridge.onVizMode((newMode) => {
     targetAlpha = 1;
     if (newMode === "processing") {
       smoothBars.fill(0);
-      smokeParticles.length = 0;
-      smokeTime = 0;
+      loaderAngle = 0;
     }
   }
   startLoop();

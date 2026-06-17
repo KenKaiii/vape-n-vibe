@@ -4,7 +4,7 @@ const defaults = {
   // Window
   window: {
     width: 400,
-    height: 430,
+    height: 320,
   },
 
   // Model registry — every selectable transcription model.

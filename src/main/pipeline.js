@@ -19,7 +19,7 @@ async function runPipeline(wavBuffer, { sendStatus, sendOverlay }) {
   const analysis = transcribeMod.analyzeWav(buf);
   if (!analysis.hasSpeech) {
     console.log(
-      `[pipeline] Audio too short or silent (${analysis.duration.toFixed(2)}s), skipping`,
+      `[pipeline] Audio too short or silent (${analysis.duration.toFixed(2)}s, max RMS ${Math.round(analysis.maxRms)}), skipping`,
     );
     sendStatus("idle");
     sendOverlay("idle");

@@ -28,6 +28,79 @@ header {
   padding: 16px;
 }
 
+.menu-wrap {
+  position: relative;
+}
+
+.menu-btn {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.menu-btn span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: #fff;
+  border-radius: 1px;
+  margin: 0 auto;
+}
+
+.menu-btn:hover span {
+  background: #999;
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 160px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+
+.menu-dropdown::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  background: #1a1a1a;
+  border-left: 1px solid #333;
+  border-top: 1px solid #333;
+  transform: rotate(45deg);
+}
+
+.menu-item {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background: #2a2a2a;
+}
+
 .logo-wrap {
   position: relative;
   display: inline-flex;
@@ -266,6 +339,47 @@ footer {
 .status-badge.granted {
   color: #4cd964;
   border-color: #2a5e30;
+}
+
+.perm-message {
+  font-size: 11px;
+  color: #f44;
+  margin-right: 8px;
+}
+
+.view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#main-view {
+  gap: 0;
+}
+
+.permissions-list {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+}
+
+.back-btn:hover {
+  color: #999;
+}
+
+.permissions-list .setting {
+  padding: 10px 16px;
 }
 
 .version-badge {

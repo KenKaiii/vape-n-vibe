@@ -1,3 +1,12 @@
+// Hot reload in development only.
+if (process.env.NODE_ENV === "development") {
+  try {
+    require("electron-reloader")(module);
+  } catch {
+    // Ignore if electron-reloader is not installed (e.g. packaged builds).
+  }
+}
+
 const path = require("node:path");
 const { app, BrowserWindow, ipcMain } = require("electron");
 const { createWindow, createOverlay } = require("./src/main/window");

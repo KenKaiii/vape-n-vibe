@@ -15,6 +15,51 @@ window.addEventListener("DOMContentLoaded", async () => {
   const versionBadge = document.getElementById("version-badge");
   const restartBtn = document.getElementById("restart-btn");
 
+  // --- Hamburger menu / view states ---
+  const menuBtn = document.getElementById("menu-btn");
+  const menuDropdown = document.getElementById("menu-dropdown");
+  const menuPermissions = document.getElementById("menu-permissions");
+  const logo = document.getElementById("logo");
+  const backBtn = document.getElementById("back-btn");
+  const mainView = document.getElementById("main-view");
+  const permissionsView = document.getElementById("permissions-view");
+
+  function showMainView() {
+    mainView.classList.remove("hidden");
+    permissionsView.classList.add("hidden");
+    logo.classList.remove("hidden");
+    backBtn.classList.add("hidden");
+    versionBadge.classList.remove("hidden");
+  }
+
+  function showPermissionsView() {
+    mainView.classList.add("hidden");
+    permissionsView.classList.remove("hidden");
+    logo.classList.add("hidden");
+    backBtn.classList.remove("hidden");
+    versionBadge.classList.add("hidden");
+    menuDropdown.classList.add("hidden");
+  }
+
+  function toggleMenuDropdown() {
+    menuDropdown.classList.toggle("hidden");
+  }
+
+  menuBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleMenuDropdown();
+  });
+
+  menuPermissions.addEventListener("click", showPermissionsView);
+
+  backBtn.addEventListener("click", showMainView);
+
+  document.addEventListener("click", (e) => {
+    if (!menuDropdown.contains(e.target) && e.target !== menuBtn) {
+      menuDropdown.classList.add("hidden");
+    }
+  });
+
   // --- Language selector ---
   langSelect.value = config.language;
   langSelect.addEventListener("change", async () => {
@@ -381,11 +426,10 @@ window.addEventListener("DOMContentLoaded", async () => {
     shortcutEl.classList.add("recording");
 
     const deviceId = micSelect.value;
+    const constraints = deviceId ? { audio: { deviceId } } : { audio: true };
     try {
       await ensureAudioContext();
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: { deviceId, channelCount: 1, sampleRate: 16000 },
-      });
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
     } catch (err) {
       isRecording = false;
       shortcutEl.classList.remove("recording");
@@ -667,15 +711,18 @@ window.addEventListener("DOMContentLoaded", async () => {
   // --- Microphone permission (macOS only) ---
   const micPermStatus = document.getElementById("mic-perm-status");
   const grantMicBtn = document.getElementById("grant-mic-btn");
+  const micPermMessage = document.getElementById("mic-perm-message");
   const micPermSetting = document.getElementById("mic-perm-setting");
 
   function updateMicUI(granted) {
     if (granted) {
       micPermStatus.classList.remove("hidden");
       grantMicBtn.classList.add("hidden");
+      micPermMessage.classList.add("hidden");
     } else {
       micPermStatus.classList.add("hidden");
       grantMicBtn.classList.remove("hidden");
+      micPermMessage.classList.add("hidden");
     }
   }
 
@@ -686,18 +733,79 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   let micPoll = null;
+
+  function stopMicPoll() {
+    if (micPoll) {
+      clearInterval(micPoll);
+      micPoll = null;
+    }
+  }
+
+  function setMicButtonState(state, message) {
+    if (state === "granted") {
+      grantMicBtn.classList.add("hidden");
+      micPermStatus.classList.remove("hidden");
+      micPermMessage.classList.add("hidden");
+      grantMicBtn.disabled = false;
+      grantMicBtn.textContent = "Grant";
+      return;
+    }
+
+    grantMicBtn.classList.remove("hidden");
+    micPermStatus.classList.add("hidden");
+    grantMicBtn.disabled = state === "waiting";
+    grantMicBtn.textContent = state === "waiting" ? "Waiting…" : "Grant";
+
+    if (message) {
+      micPermMessage.textContent = message;
+      micPermMessage.classList.remove("hidden");
+    } else {
+      micPermMessage.classList.add("hidden");
+    }
+  }
+
+  async function checkAndUpdateMic() {
+    const granted = await window.vapenvibe.checkMicrophone();
+    if (granted) {
+      stopMicPoll();
+      setMicButtonState("granted");
+      return true;
+    }
+    return false;
+  }
+
   grantMicBtn.addEventListener("click", async () => {
-    grantMicBtn.textContent = "Waiting…";
-    await window.vapenvibe.requestMicrophone();
-    if (micPoll) clearInterval(micPoll);
-    micPoll = setInterval(async () => {
-      const granted = await window.vapenvibe.checkMicrophone();
-      if (granted) {
-        clearInterval(micPoll);
-        micPoll = null;
-        updateMicUI(true);
-      }
-    }, 2000);
+    if (grantMicBtn.disabled) return;
+    setMicButtonState("waiting");
+
+    try {
+      // Use the standard Web API to trigger the macOS permission dialog from
+      // a user gesture. askForMediaAccess via IPC is unreliable in dev.
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+      await populateMicDropdown();
+      setMicButtonState("granted");
+    } catch {
+      // Dialog dismissed or access denied.
+      const granted = await checkAndUpdateMic();
+      if (granted) return;
+
+      setMicButtonState(
+        "grant",
+        `Access denied — run: ${config.micResetCommand}`,
+      );
+
+      // Poll briefly in case the user grants via System Settings while this
+      // window is open.
+      stopMicPoll();
+      micPoll = setInterval(checkAndUpdateMic, 2000);
+      setTimeout(() => {
+        stopMicPoll();
+        if (micPermStatus.classList.contains("hidden")) {
+          setMicButtonState("grant");
+        }
+      }, 30000);
+    }
   });
 
   // --- Accessibility permission ---
@@ -796,23 +904,30 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
 
   // --- Microphone dropdown ---
-  try {
-    const tempStream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
-    tempStream.getTracks().forEach((t) => t.stop());
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const mics = devices.filter((d) => d.kind === "audioinput");
+  async function populateMicDropdown() {
+    try {
+      const tempStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      tempStream.getTracks().forEach((t) => t.stop());
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const mics = devices.filter((d) => d.kind === "audioinput");
 
-    micSelect.innerHTML = "";
-    mics.forEach((mic, i) => {
-      const option = document.createElement("option");
-      option.value = mic.deviceId;
-      option.textContent = mic.label || `Microphone ${i + 1}`;
-      if (mic.deviceId === "default" || i === 0) option.selected = true;
-      micSelect.appendChild(option);
-    });
-  } catch {
-    micSelect.innerHTML = '<option value="default">No mic access</option>';
+      const current = micSelect.value;
+      micSelect.innerHTML = "";
+      mics.forEach((mic, i) => {
+        const option = document.createElement("option");
+        option.value = mic.deviceId;
+        option.textContent = mic.label || `Microphone ${i + 1}`;
+        if (mic.deviceId === current || (i === 0 && !current)) {
+          option.selected = true;
+        }
+        micSelect.appendChild(option);
+      });
+    } catch {
+      micSelect.innerHTML = '<option value="">No mic access</option>';
+    }
   }
+
+  await populateMicDropdown();
 });

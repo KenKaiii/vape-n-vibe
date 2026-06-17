@@ -6,7 +6,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self' blob:; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; media-src 'self'; img-src 'self' data:"
     />
-    <title>Vape 'n' Vibe</title>
+    <title>Vaper</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -18,99 +18,139 @@
   <body>
     <header>
       <div class="logo-wrap">
-        <span class="logo">vape 'n' vibe</span>
+        <span class="logo" id="logo">Vaper</span>
+        <button class="back-btn hidden" id="back-btn" aria-label="Back">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-chevron-left"
+          >
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+        </button>
         <span class="version-badge" id="version-badge"></span>
       </div>
+      <div class="menu-wrap">
+        <button class="menu-btn" id="menu-btn" aria-label="Menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div class="menu-dropdown hidden" id="menu-dropdown">
+          <button class="menu-item" id="menu-permissions">Permissions</button>
+        </div>
+      </div>
     </header>
-    <main>
-      <div class="setting">
-        <label class="setting-label">Transcribe</label>
-        <div class="shortcut-group">
-          <span class="shortcut-key" id="shortcut">fn</span>
-          <button class="change-btn" id="change-hotkey">Change</button>
-          <button class="change-btn hidden" id="reset-fn">fn</button>
+
+    <div class="view" id="main-view">
+      <main>
+        <div class="setting">
+          <label class="setting-label">Transcribe</label>
+          <div class="shortcut-group">
+            <span class="shortcut-key" id="shortcut">fn</span>
+            <button class="change-btn" id="change-hotkey">Change</button>
+            <button class="change-btn hidden" id="reset-fn">fn</button>
+          </div>
         </div>
-      </div>
-      <div class="setting">
-        <label class="setting-label">Microphone</label>
-        <select class="mic-select" id="mic-select">
-          <option value="default">Default</option>
-        </select>
-      </div>
-      <div class="setting">
-        <label class="setting-label">Language</label>
-        <select class="mic-select" id="lang-select">
-          <option value="auto">Auto-detect</option>
-          <option value="en">English</option>
-          <option value="fr">French</option>
-          <option value="de">German</option>
-          <option value="es">Spanish</option>
-          <option value="it">Italian</option>
-          <option value="pt">Portuguese</option>
-          <option value="nl">Dutch</option>
-          <option value="ja">Japanese</option>
-          <option value="zh">Chinese</option>
-          <option value="ko">Korean</option>
-          <option value="ru">Russian</option>
-          <option value="ar">Arabic</option>
-          <option value="tr">Turkish</option>
-          <option value="pl">Polish</option>
-          <option value="uk">Ukrainian</option>
-        </select>
-      </div>
-      <div class="setting">
-        <label class="setting-label">Dictionary</label>
-        <div class="setting-right">
-          <span class="dictionary-count hidden" id="dictionary-hint"
-            >Whisper only</span
-          >
-          <span class="dictionary-count" id="dictionary-count"></span>
-          <button class="setting-btn" id="dictionary-btn">Edit</button>
+        <div class="setting">
+          <label class="setting-label">Microphone</label>
+          <select class="mic-select" id="mic-select">
+            <option value="default">Default</option>
+          </select>
         </div>
-      </div>
-      <div class="setting" id="mic-perm-setting">
-        <label class="setting-label">Microphone</label>
-        <span class="status-badge granted hidden" id="mic-perm-status"
-          >Granted</span
-        >
-        <button class="setting-btn hidden" id="grant-mic-btn">Grant</button>
-      </div>
-      <div class="setting" id="accessibility-setting">
-        <label class="setting-label">Accessibility</label>
-        <span class="status-badge granted hidden" id="access-status"
-          >Granted</span
-        >
-        <button class="setting-btn hidden" id="grant-access-btn">Grant</button>
-      </div>
-      <div class="setting" id="system-events-setting">
-        <label class="setting-label">System Events</label>
-        <span class="status-badge granted hidden" id="se-status">Granted</span>
-        <button class="setting-btn hidden" id="grant-se-btn">Grant</button>
-      </div>
-    </main>
-    <footer>
-      <div class="footer-left">
-        <select class="mic-select model-select" id="model-select"></select>
-        <span class="model-info hidden" id="model-info">
-          <span class="model-info-icon" id="model-info-icon"
-            >i
-            <span class="model-tooltip" id="model-tooltip">
-              <span class="tooltip-row" id="tooltip-whisper"></span>
+        <div class="setting">
+          <label class="setting-label">Language</label>
+          <select class="mic-select" id="lang-select">
+            <option value="auto">Auto-detect</option>
+            <option value="en">English</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="es">Spanish</option>
+            <option value="it">Italian</option>
+            <option value="pt">Portuguese</option>
+            <option value="nl">Dutch</option>
+            <option value="ja">Japanese</option>
+            <option value="zh">Chinese</option>
+            <option value="ko">Korean</option>
+            <option value="ru">Russian</option>
+            <option value="ar">Arabic</option>
+            <option value="tr">Turkish</option>
+            <option value="pl">Polish</option>
+            <option value="uk">Ukrainian</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label class="setting-label">Dictionary</label>
+          <div class="setting-right">
+            <span class="dictionary-count hidden" id="dictionary-hint"
+              >Whisper only</span
+            >
+            <span class="dictionary-count" id="dictionary-count"></span>
+            <button class="setting-btn" id="dictionary-btn">Edit</button>
+          </div>
+        </div>
+      </main>
+      <footer>
+        <div class="footer-left">
+          <select class="mic-select model-select" id="model-select"></select>
+          <span class="model-info hidden" id="model-info">
+            <span class="model-info-icon" id="model-info-icon"
+              >i
+              <span class="model-tooltip" id="model-tooltip">
+                <span class="tooltip-row" id="tooltip-whisper"></span>
+              </span>
             </span>
           </span>
-        </span>
-        <button class="download-btn hidden" id="download-btn">
-          Download models
-        </button>
-        <span class="download-progress hidden" id="download-progress"></span>
-        <button class="restart-btn hidden" id="restart-btn">
-          Restart to apply
-        </button>
+          <button class="download-btn hidden" id="download-btn">
+            Download models
+          </button>
+          <span class="download-progress hidden" id="download-progress"></span>
+          <button class="restart-btn hidden" id="restart-btn">
+            Restart to apply
+          </button>
+        </div>
+        <div class="footer-right">
+          <button class="update-btn" id="update-btn">Check for updates</button>
+        </div>
+      </footer>
+    </div>
+
+    <div class="view hidden" id="permissions-view">
+      <div class="permissions-list">
+        <div class="setting" id="mic-perm-setting">
+          <label class="setting-label">Microphone</label>
+          <span class="perm-message hidden" id="mic-perm-message"></span>
+          <span class="status-badge granted hidden" id="mic-perm-status"
+            >Granted</span
+          >
+          <button class="setting-btn hidden" id="grant-mic-btn">Grant</button>
+        </div>
+        <div class="setting" id="accessibility-setting">
+          <label class="setting-label">Accessibility</label>
+          <span class="status-badge granted hidden" id="access-status"
+            >Granted</span
+          >
+          <button class="setting-btn hidden" id="grant-access-btn">
+            Grant
+          </button>
+        </div>
+        <div class="setting" id="system-events-setting">
+          <label class="setting-label">System Events</label>
+          <span class="status-badge granted hidden" id="se-status"
+            >Granted</span
+          >
+          <button class="setting-btn hidden" id="grant-se-btn">Grant</button>
+        </div>
       </div>
-      <div class="footer-right">
-        <button class="update-btn" id="update-btn">Check for updates</button>
-      </div>
-    </footer>
+    </div>
+
     <div class="dictionary-modal hidden" id="dictionary-modal">
       <div class="dictionary-panel">
         <div class="dictionary-header">

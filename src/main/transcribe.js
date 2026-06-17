@@ -268,7 +268,7 @@ function analyzeWav(wavData) {
   const SAMPLE_RATE = 16000;
 
   if (wavData.length <= WAV_HEADER) {
-    return { hasSpeech: false, duration: 0 };
+    return { hasSpeech: false, duration: 0, maxRms: 0 };
   }
 
   const pcmBytes = wavData.length - WAV_HEADER;
@@ -277,7 +277,7 @@ function analyzeWav(wavData) {
 
   // Too short — Whisper hallucinates on sub-second clips
   if (duration < MIN_AUDIO_DURATION_S) {
-    return { hasSpeech: false, duration };
+    return { hasSpeech: false, duration, maxRms: 0 };
   }
 
   // Segment-based energy check: if ANY 50ms window exceeds threshold,
@@ -285,6 +285,7 @@ function analyzeWav(wavData) {
   // phrases surrounded by silence (which dilutes the energy).
   const segmentSamples = Math.floor(SAMPLE_RATE * 0.05); // 50ms segments
   const pcm = Buffer.from(wavData.buffer, wavData.byteOffset + WAV_HEADER);
+  let maxRms = 0;
 
   for (
     let off = 0;
@@ -297,12 +298,13 @@ function analyzeWav(wavData) {
       sumSq += sample * sample;
     }
     const rms = Math.sqrt(sumSq / segmentSamples);
+    if (rms > maxRms) maxRms = rms;
     if (rms > SILENCE_RMS_THRESHOLD) {
-      return { hasSpeech: true, duration };
+      return { hasSpeech: true, duration, maxRms };
     }
   }
 
-  return { hasSpeech: false, duration };
+  return { hasSpeech: false, duration, maxRms };
 }
 
 /**

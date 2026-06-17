@@ -64,6 +64,7 @@ function registerIpcHandlers(windows) {
       microphoneGranted:
         process.platform !== "darwin" ||
         systemPreferences.getMediaAccessStatus("microphone") === "granted",
+      micResetCommand: `tccutil reset Microphone ${app.isPackaged ? "com.unstablemind.vapenvibe" : "com.github.Electron"}`,
       platform: process.platform,
       language: store.get("language"),
       version: app.getVersion(),
@@ -182,7 +183,22 @@ function registerIpcHandlers(windows) {
   ipcMain.handle("request-microphone", async (event) => {
     if (!validateSender(event.senderFrame)) return false;
     if (process.platform !== "darwin") return true;
-    return systemPreferences.askForMediaAccess("microphone");
+    try {
+      const before = systemPreferences.getMediaAccessStatus("microphone");
+      console.log("[main] Microphone status before request:", before);
+      const granted = await systemPreferences.askForMediaAccess("microphone");
+      const after = systemPreferences.getMediaAccessStatus("microphone");
+      console.log(
+        "[main] Microphone status after request:",
+        after,
+        "granted:",
+        granted,
+      );
+      return granted;
+    } catch (err) {
+      console.error("[main] Microphone access request failed:", err.message);
+      return false;
+    }
   });
 
   ipcMain.handle("check-for-updates", (event) => {
