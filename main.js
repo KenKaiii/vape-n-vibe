@@ -9,6 +9,9 @@ if (process.env.NODE_ENV === "development") {
 
 const path = require("node:path");
 const { app, BrowserWindow, ipcMain } = require("electron");
+
+// Force the macOS dock / app name regardless of how Electron resolves it.
+app.setName("Vaper");
 const { createWindow, createOverlay } = require("./src/main/window");
 const defaults = require("./src/config/defaults");
 const { registerHotkey, stopHotkey } = require("./src/main/hotkey");
