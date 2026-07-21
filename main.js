@@ -10,6 +10,13 @@ if (process.env.NODE_ENV === "development") {
 const path = require("node:path");
 const { app, BrowserWindow, ipcMain } = require("electron");
 
+// Keep downloaded models and settings in the original stable directory.
+// app.setName() also changes Electron's default userData path, so pin it before
+// applying the display-name rebrand to avoid orphaning multi-gigabyte models.
+if (app.isPackaged) {
+  app.setPath("userData", path.join(app.getPath("appData"), "vape-n-vibe"));
+}
+
 // Force the macOS dock / app name regardless of how Electron resolves it.
 app.setName("Vaper");
 const { createWindow, createOverlay } = require("./src/main/window");

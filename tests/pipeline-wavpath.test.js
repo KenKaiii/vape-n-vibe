@@ -5,7 +5,7 @@
  * os.tmpdir(), capture the actual files created by checking which new
  * vapenvibe-*.wav files appear, then assert they differ and clean up.
  */
-import { describe, it, expect, vi } from "vitest";
+import { afterAll, beforeAll, describe, it, expect, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -61,6 +61,19 @@ function makeSpeechWav(durationSec) {
 }
 
 const VALID_WAV = makeSpeechWav(1.0);
+const originalTmpDir = os.tmpdir();
+const isolatedTmpDir = fs.mkdtempSync(
+  path.join(originalTmpDir, "vapenvibe-test-"),
+);
+
+beforeAll(() => {
+  process.env.TMPDIR = isolatedTmpDir;
+});
+
+afterAll(() => {
+  process.env.TMPDIR = originalTmpDir;
+  fs.rmSync(isolatedTmpDir, { recursive: true, force: true });
+});
 
 /** Return set of vapenvibe-*.wav filenames currently in tmpdir. */
 function snapshotTmpWavs() {
