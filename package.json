@@ -131,7 +131,7 @@
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
     "@eslint/js": "^10.0.1",
-    "electron": "^42.1.0",
+    "electron": "^42.7.0",
     "electron-builder": "^26.8.1",
     "electron-builder-squirrel-windows": "26.15.2",
     "electron-reloader": "^1.2.3",
@@ -147,7 +147,7 @@
     "electron-updater": "^6.6.2",
     "lucide": "^1.20.0",
     "node-addon-api": "^8.7.0",
-    "sherpa-onnx-node": "^1.13.2",
+    "sherpa-onnx-node": "^1.13.4",
     "uiohook-napi": "^1.5.5",
     "whisper-node": "^1.1.1"
   }

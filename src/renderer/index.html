@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&family=Slackey&display=swap"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Slackey&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
@@ -38,13 +38,21 @@
         <span class="version-badge" id="version-badge"></span>
       </div>
       <div class="menu-wrap">
-        <button class="menu-btn" id="menu-btn" aria-label="Menu">
+        <button
+          class="menu-btn"
+          id="menu-btn"
+          aria-label="Menu"
+          aria-haspopup="menu"
+          aria-expanded="false"
+        >
           <span></span>
           <span></span>
           <span></span>
         </button>
-        <div class="menu-dropdown hidden" id="menu-dropdown">
-          <button class="menu-item" id="menu-permissions">Permissions</button>
+        <div class="menu-dropdown hidden" id="menu-dropdown" role="menu">
+          <button class="menu-item" id="menu-permissions" role="menuitem">
+            Permissions
+          </button>
         </div>
       </div>
     </header>
@@ -108,8 +116,28 @@
               </span>
             </span>
           </span>
-          <button class="download-btn hidden" id="download-btn">
-            Download models
+          <button
+            class="download-btn hidden"
+            id="download-btn"
+            type="button"
+            aria-label="Download model"
+            title="Download model"
+          >
+            <svg
+              aria-hidden="true"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 3v12" />
+              <path d="m7 10 5 5 5-5" />
+              <path d="M5 21h14" />
+            </svg>
           </button>
           <span class="download-progress hidden" id="download-progress"></span>
           <button class="restart-btn hidden" id="restart-btn">

@@ -17,6 +17,10 @@ function createWindow() {
     show: false,
     backgroundColor: "#000",
     icon: path.join(__dirname, "..", "..", "assets", "icon.png"),
+    ...(process.platform === "darwin" && {
+      titleBarStyle: "hiddenInset",
+      trafficLightPosition: { x: 16, y: 18 },
+    }),
     webPreferences: {
       preload: path.join(__dirname, "..", "main", "preload.js"),
       contextIsolation: true,

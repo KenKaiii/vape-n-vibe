@@ -13,7 +13,7 @@ IFS=$'\n\t'
 # Output: vendor/whisper.cpp/whisper-server (gitignored — run this once
 # after `npm install`, and automatically via prebuild/predist).
 
-readonly WHISPER_CPP_TAG="v1.8.6"
+readonly WHISPER_CPP_TAG="v1.9.1"
 readonly REPO_URL="https://github.com/ggml-org/whisper.cpp"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

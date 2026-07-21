@@ -1,34 +1,71 @@
 * {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
 body {
-  background: transparent;
-  overflow: hidden;
   display: flex;
+  overflow: hidden;
   flex-direction: column;
   align-items: center;
+  padding-top: 68px;
+  background: transparent;
 }
 
 canvas {
   display: block;
+  border: 1px solid rgba(143, 153, 143, 0.24);
+  border-radius: 10px;
+  background: rgba(11, 13, 12, 0.92);
+  box-shadow:
+    0 6px 22px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(244, 247, 242, 0.04);
+  opacity: 0;
+  transition: opacity 170ms cubic-bezier(0.2, 0, 0.38, 0.9);
+}
+
+canvas.visible {
+  opacity: 1;
 }
 
 #partial-text {
-  color: #fff;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 12px;
-  max-width: 320px;
-  margin-top: 4px;
-  padding: 0 10px;
-  white-space: nowrap;
   overflow: hidden;
+  min-width: 36px;
+  max-width: 320px;
+  min-height: 20px;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border: 1px solid rgba(183, 247, 116, 0.24);
+  border-radius: 6px;
+  background: rgba(11, 13, 12, 0.84);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+  color: #f4f7f2;
   direction: rtl;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
   text-align: left;
-  text-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.8),
-    0 0 6px rgba(0, 0, 0, 0.5);
-  min-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#partial-text:empty {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  canvas {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    transition-duration: 0.01ms;
+  }
+}
+
+@media (forced-colors: active) {
+  #partial-text {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
 }

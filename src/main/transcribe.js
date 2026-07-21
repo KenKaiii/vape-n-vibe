@@ -143,11 +143,10 @@ function trimSilenceWav(wavData) {
 }
 
 /**
- * Maximum chunk length fed to parakeet in one decode.  Sherpa-onnx's
- * offline transducer recipes (LocalAI, sokuji, the official
- * sherpa-onnx-vad-with-offline-asr example) all cap speech segments at
- * 20s before decoding — the full-attention encoder degrades and
- * balloons memory on longer inputs.
+ * Maximum chunk length fed to Parakeet in one decode. Sherpa-onnx's
+ * official offline-ASR-with-VAD examples bound speech segments before
+ * decoding; its VAD configuration uses a 20-second maximum by default.
+ * Matching that bound keeps decode cost and memory predictable.
  */
 const PARAKEET_MAX_CHUNK_S = 20;
 
@@ -157,14 +156,6 @@ const PARAKEET_MAX_CHUNK_S = 20;
  * between words instead of mid-syllable.
  */
 const PARAKEET_SPLIT_LOOKBACK_S = 8;
-
-/**
- * Skip parakeet *partial* (live-preview) decodes past this duration.
- * Parakeet decodes are blocking and non-abortable, so a long in-flight
- * partial would delay the final transcription by its full inference
- * time.  Whisper partials are unaffected (abortable HTTP requests).
- */
-const PARAKEET_PARTIAL_MAX_S = 20;
 
 /**
  * Slice a PCM byte range out of a WAV buffer into a standalone WAV
@@ -185,13 +176,13 @@ function sliceWav(wavData, startByte, endByte) {
 /**
  * Split a 16kHz mono PCM16 WAV buffer into chunks of at most
  * `maxChunkS` seconds, breaking at the quietest 50ms RMS segment within
- * the lookback window before each limit.  Returns [wavData] unchanged
+ * the lookback window before each limit. Returns [wavData] unchanged
  * when the audio already fits in one chunk.
  *
- * This is the no-extra-model stand-in for the Silero VAD segmentation
- * that sherpa-onnx projects use ahead of OfflineRecognizer: same ≤20s
- * ceiling, silence-seeking split points, but reusing the RMS scan we
- * already trust in trimSilenceWav/analyzeWav.
+ * This provides the bounded segments recommended by sherpa-onnx without
+ * adding another model download. A dedicated VAD could identify speech
+ * boundaries more precisely, but the silence-seeking split preserves all
+ * samples and keeps this path lightweight.
  */
 function chunkWavOnSilence(wavData, maxChunkS = PARAKEET_MAX_CHUNK_S) {
   const WAV_HEADER = 44;
@@ -411,8 +402,8 @@ async function transcribe(wavPath, lang, { rawWav, analysis } = {}) {
   const active = getActiveModel(lang);
   if (active.model.engine === "parakeet") {
     const parakeet = require("./parakeet");
-    // Sherpa-onnx offline transducers degrade past ~20s of input —
-    // split long recordings at silence and decode sequentially.
+    // Keep each offline decode within sherpa-onnx's 20-second segment
+    // bound; split at the quietest available point and decode sequentially.
     const chunks = chunkWavOnSilence(wavData);
     console.log(
       `[transcribe] Parakeet decode (${Math.round(audioDuration)}s audio, ${chunks.length} chunk${chunks.length === 1 ? "" : "s"})`,
@@ -738,37 +729,23 @@ async function transcribePartial(wavBuffer, lang) {
               ),
         );
 
-  const { hasSpeech, duration } = analyzeWav(wavData);
+  const { hasSpeech, duration: partialDuration } = analyzeWav(wavData);
   if (!hasSpeech) return "";
 
   const active = getActiveModel(lang);
   if (active.model.engine === "parakeet") {
-    // Parakeet decodes are blocking and non-abortable — past this
-    // duration an in-flight partial would stall the final transcription
-    // behind it, so skip live preview entirely on long recordings.
-    if (duration > PARAKEET_PARTIAL_MAX_S) return "";
-    // Stale results are discarded via the session-ID pattern in ipc.js.
-    // Dictionary prompts are unsupported by the engine.
-    const parakeet = require("./parakeet");
-    const raw = await parakeet.transcribeWav(
-      Buffer.from(wavData.buffer, wavData.byteOffset, wavData.length),
-    );
-    const text = parseOutput(raw, { exact: false, engine: "parakeet" });
-    console.log("[transcribe-partial] result:", text);
-    return text;
+    // Parakeet's decode is synchronous and cannot be cancelled. Live
+    // previews would share its one worker with the final chunked decode, so
+    // stopping during a preview can queue or time out the final transcript.
+    // Keep previews on Whisper only; final Parakeet transcription remains
+    // fast and gets exclusive use of its worker.
+    return "";
   }
 
   await ensureServer(lang);
 
-  // Measure duration for the PROMPT_MIN_AUDIO_S guard (same logic as
-  // transcribe()): skip the dictionary prompt on very short clips where
-  // it dominates context and biases output toward technical jargon.
-  const WAV_HEADER = 44;
-  const BYTES_PER_SAMPLE = 2;
-  const SAMPLE_RATE = 16000;
-  const pcmBytes =
-    wavData.length > WAV_HEADER ? wavData.length - WAV_HEADER : 0;
-  const partialDuration = Math.floor(pcmBytes / BYTES_PER_SAMPLE) / SAMPLE_RATE;
+  // Skip the dictionary prompt on very short clips where it dominates
+  // context and biases output toward technical jargon.
 
   const builtIn = defaults.dictionary.builtIn || [];
   const userWords = store.get("dictionaryWords") || [];

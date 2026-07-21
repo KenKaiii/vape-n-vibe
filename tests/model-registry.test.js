@@ -50,7 +50,9 @@ const transcribePath = require.resolve(
   path.resolve(__dirname, "../src/main/transcribe.js"),
 );
 delete require.cache[transcribePath];
-const { getActiveModel, parseOutput } = require(transcribePath);
+const { getActiveModel, parseOutput, transcribePartial } = require(
+  transcribePath,
+);
 
 const PARAKEET_KEY = "parakeet-tdt-0.6b-v3-int8";
 const WHISPER_KEY = "whisper-large-v3-turbo-q5";
@@ -107,6 +109,23 @@ describe("getActiveModel", () => {
   it("falls back to the default model for unknown keys", () => {
     storeState.selectedModel = "no-such-model";
     expect(getActiveModel().key).toBe(WHISPER_KEY);
+  });
+});
+
+describe("Parakeet partial transcription", () => {
+  beforeEach(() => {
+    storeState.selectedModel = PARAKEET_KEY;
+    storeState.language = "en";
+    downloadState.exists = true;
+  });
+
+  it("skips live preview so the final decode has exclusive worker access", async () => {
+    const wav = Buffer.alloc(44 + 16000 * 2);
+    for (let offset = 44; offset < wav.length; offset += 2) {
+      wav.writeInt16LE(5000, offset);
+    }
+
+    await expect(transcribePartial(wav, "en")).resolves.toBe("");
   });
 });
 

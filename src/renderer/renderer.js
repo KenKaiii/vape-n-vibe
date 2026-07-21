@@ -1,5 +1,9 @@
 window.addEventListener("DOMContentLoaded", async () => {
   const config = await window.vapenvibe.getConfig();
+  document.documentElement.classList.toggle(
+    "platform-macos",
+    config.platform === "darwin",
+  );
 
   const shortcutEl = document.getElementById("shortcut");
   const changeBtn = document.getElementById("change-hotkey");
@@ -15,6 +19,18 @@ window.addEventListener("DOMContentLoaded", async () => {
   const versionBadge = document.getElementById("version-badge");
   const restartBtn = document.getElementById("restart-btn");
 
+  document.querySelectorAll("select").forEach((select) => {
+    select.addEventListener("pointerdown", () =>
+      select.classList.add("pointer-focus"),
+    );
+    select.addEventListener("keydown", () =>
+      select.classList.remove("pointer-focus"),
+    );
+    select.addEventListener("blur", () =>
+      select.classList.remove("pointer-focus"),
+    );
+  });
+
   // --- Hamburger menu / view states ---
   const menuBtn = document.getElementById("menu-btn");
   const menuDropdown = document.getElementById("menu-dropdown");
@@ -23,6 +39,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   const backBtn = document.getElementById("back-btn");
   const mainView = document.getElementById("main-view");
   const permissionsView = document.getElementById("permissions-view");
+
+  function closeMenuDropdown() {
+    menuDropdown.classList.add("hidden");
+    menuBtn.setAttribute("aria-expanded", "false");
+  }
 
   function showMainView() {
     mainView.classList.remove("hidden");
@@ -38,11 +59,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     logo.classList.add("hidden");
     backBtn.classList.remove("hidden");
     versionBadge.classList.add("hidden");
-    menuDropdown.classList.add("hidden");
+    closeMenuDropdown();
   }
 
   function toggleMenuDropdown() {
-    menuDropdown.classList.toggle("hidden");
+    const isOpen = menuDropdown.classList.contains("hidden");
+    menuDropdown.classList.toggle("hidden", !isOpen);
+    menuBtn.setAttribute("aria-expanded", String(isOpen));
+    if (isOpen) menuPermissions.focus();
   }
 
   menuBtn.addEventListener("click", (e) => {
@@ -56,7 +80,14 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   document.addEventListener("click", (e) => {
     if (!menuDropdown.contains(e.target) && e.target !== menuBtn) {
-      menuDropdown.classList.add("hidden");
+      closeMenuDropdown();
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !menuDropdown.classList.contains("hidden")) {
+      closeMenuDropdown();
+      menuBtn.focus();
     }
   });
 
@@ -174,13 +205,18 @@ window.addEventListener("DOMContentLoaded", async () => {
     );
   }
 
+  function setDownloadActionLabel(label) {
+    downloadBtn.setAttribute("aria-label", label);
+    downloadBtn.title = label;
+  }
+
   function updateFooter() {
     if (modelsReady) {
       tooltipWhisper.textContent = `${engineName()}: ${selectedModel}`;
       modelInfo.classList.remove("hidden");
       downloadBtn.classList.add("hidden");
     } else {
-      downloadBtn.textContent = `Download ${engineName()}`;
+      setDownloadActionLabel(`Download ${engineName()}`);
       tooltipWhisper.textContent = `${engineName()}: not downloaded`;
       modelInfo.classList.remove("hidden");
       downloadBtn.classList.remove("hidden");
@@ -226,7 +262,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       console.error("[renderer] Download failed:", err);
       downloadProgress.classList.add("hidden");
       downloadBtn.classList.remove("hidden");
-      downloadBtn.textContent = "Retry download";
+      setDownloadActionLabel(`Retry ${engineName()} download`);
     }
   });
 
@@ -246,7 +282,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   window.vapenvibe.onDownloadsError((msg) => {
     downloadProgress.classList.add("hidden");
     downloadBtn.classList.remove("hidden");
-    downloadBtn.textContent = "Retry download";
+    setDownloadActionLabel(`Retry ${engineName()} download`);
     console.error("Download error:", msg);
   });
 

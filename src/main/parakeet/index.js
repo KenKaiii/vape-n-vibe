@@ -11,8 +11,11 @@ const defaults = require("../../config/defaults");
 
 let worker = null;
 let ready = false;
+let startingPromise = null;
 let nextRequestId = 1;
-/** @type {Map<number, {resolve: Function, reject: Function, timer: any}>} */
+/**
+ * @type {Map<number, {resolve: Function, reject: Function, timer: any, proc: object}>}
+ */
 const pending = new Map();
 
 let restartCount = 0;
@@ -62,6 +65,15 @@ function rejectAllPending(reason) {
   pending.clear();
 }
 
+function rejectPendingForWorker(proc, reason) {
+  for (const [id, req] of pending) {
+    if (req.proc !== proc) continue;
+    clearTimeout(req.timer);
+    req.reject(new Error(reason));
+    pending.delete(id);
+  }
+}
+
 /**
  * Spawn the worker and wait for the recognizer to initialize.
  */
@@ -104,7 +116,7 @@ function startWorker() {
       if (!msg || typeof msg !== "object") return;
 
       if (msg.type === "ready") {
-        if (settled) return;
+        if (settled || worker !== proc) return;
         settled = true;
         clearTimeout(initTimer);
         ready = true;
@@ -148,7 +160,7 @@ function startWorker() {
         worker = null;
         ready = false;
       }
-      rejectAllPending("Parakeet worker exited");
+      rejectPendingForWorker(proc, "Parakeet worker exited");
       if (!settled) {
         settled = true;
         clearTimeout(initTimer);
@@ -167,6 +179,7 @@ function startWorker() {
  */
 async function ensureParakeet() {
   if (ready && worker) return;
+  if (startingPromise) return startingPromise;
 
   if (restartCount >= MAX_RESTARTS) {
     if (!restartCountResetTimer) {
@@ -184,7 +197,7 @@ async function ensureParakeet() {
   restartCount++;
   console.log(`[parakeet] Start attempt ${restartCount}/${MAX_RESTARTS}`);
 
-  // Clean up any zombie process
+  // Clean up any zombie process.
   if (worker) {
     try {
       worker.kill();
@@ -195,7 +208,16 @@ async function ensureParakeet() {
     ready = false;
   }
 
-  await startWorker();
+  // Initialization is single-flight. Two transcriptions can arrive together
+  // while the model is loading; sharing this promise prevents them from
+  // killing and replacing each other's worker.
+  const attempt = startWorker();
+  startingPromise = attempt;
+  try {
+    await attempt;
+  } finally {
+    if (startingPromise === attempt) startingPromise = null;
+  }
 }
 
 /**
@@ -208,6 +230,7 @@ function stopParakeet() {
   const proc = worker;
   worker = null;
   ready = false;
+  startingPromise = null;
   restartCount = 0;
   rejectAllPending("Parakeet worker stopped");
 
@@ -243,12 +266,26 @@ async function transcribeWav(wavData) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       pending.delete(id);
+
+      // A timed-out synchronous decode may be permanently wedged. Recycle
+      // that worker instead of leaving every later recording queued behind
+      // it; ensureParakeet() will start a fresh process on the next request.
+      if (worker === proc) {
+        worker = null;
+        ready = false;
+        try {
+          proc.kill();
+        } catch {
+          // already dead
+        }
+      }
+
       reject(
         new Error(`Parakeet transcription timed out after ${timeoutMs}ms`),
       );
     }, timeoutMs);
 
-    pending.set(id, { resolve, reject, timer });
+    pending.set(id, { resolve, reject, timer, proc });
     proc.postMessage({
       type: "transcribe",
       id,

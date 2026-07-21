@@ -9,3 +9,4 @@ models/*.gguf
 models/parakeet-*/
 vendor/
 .gg/
+test-results/
