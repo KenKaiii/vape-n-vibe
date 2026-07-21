@@ -46,6 +46,24 @@ require.cache[downloadPath] = {
   },
 };
 
+// Fake parakeet engine — controls the raw preview/decode text per test
+// without spawning the real sherpa-onnx utilityProcess worker.
+const parakeetState = { text: "" };
+const parakeetPath = require.resolve(
+  path.resolve(__dirname, "../src/main/parakeet/index.js"),
+);
+require.cache[parakeetPath] = {
+  id: parakeetPath,
+  filename: parakeetPath,
+  loaded: true,
+  exports: {
+    transcribeWav: vi.fn(async () => parakeetState.text),
+    ensureParakeet: vi.fn(),
+    stopParakeet: vi.fn(),
+    isReady: vi.fn(() => true),
+  },
+};
+
 const transcribePath = require.resolve(
   path.resolve(__dirname, "../src/main/transcribe.js"),
 );
@@ -113,19 +131,39 @@ describe("getActiveModel", () => {
 });
 
 describe("Parakeet partial transcription", () => {
-  beforeEach(() => {
-    storeState.selectedModel = PARAKEET_KEY;
-    storeState.language = "en";
-    downloadState.exists = true;
-  });
-
-  it("skips live preview so the final decode has exclusive worker access", async () => {
+  // 1s of constant-amplitude tone — clears analyzeWav's hasSpeech check.
+  function makeSpeechWav() {
     const wav = Buffer.alloc(44 + 16000 * 2);
     for (let offset = 44; offset < wav.length; offset += 2) {
       wav.writeInt16LE(5000, offset);
     }
+    return wav;
+  }
 
-    await expect(transcribePartial(wav, "en")).resolves.toBe("");
+  beforeEach(() => {
+    storeState.selectedModel = PARAKEET_KEY;
+    storeState.language = "en";
+    downloadState.exists = true;
+    parakeetState.text = "";
+  });
+
+  it("decodes a live preview on the shared worker", async () => {
+    parakeetState.text = "hello world";
+    await expect(transcribePartial(makeSpeechWav(), "en")).resolves.toBe(
+      "hello world",
+    );
+  });
+
+  it("keeps plausible single-word previews (no exact-match filtering)", async () => {
+    parakeetState.text = "okay";
+    await expect(transcribePartial(makeSpeechWav(), "en")).resolves.toBe(
+      "okay",
+    );
+  });
+
+  it("still applies structural filtering to previews", async () => {
+    parakeetState.text = "[BLANK_AUDIO]";
+    await expect(transcribePartial(makeSpeechWav(), "en")).resolves.toBe("");
   });
 });
 

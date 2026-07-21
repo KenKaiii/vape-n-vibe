@@ -734,12 +734,26 @@ async function transcribePartial(wavBuffer, lang) {
 
   const active = getActiveModel(lang);
   if (active.model.engine === "parakeet") {
-    // Parakeet's decode is synchronous and cannot be cancelled. Live
-    // previews would share its one worker with the final chunked decode, so
-    // stopping during a preview can queue or time out the final transcript.
-    // Keep previews on Whisper only; final Parakeet transcription remains
-    // fast and gets exclusive use of its worker.
-    return "";
+    // Live preview on Parakeet. Its decode is synchronous and can't be
+    // cancelled, so a preview shares the single worker with the final decode.
+    // Two things keep that safe: the renderer only ever sends a bounded
+    // (~15s) sliding window, and audio-partial serializes previews (one in
+    // flight). So each preview decode is cheap and, on stop, the final decode
+    // queues behind at most one in-flight preview instead of a full-length one.
+    const parakeet = require("./parakeet");
+    try {
+      const raw = await parakeet.transcribeWav(wavData);
+      // exact:false — keep plausible single-word previews ("okay", "so").
+      return parseOutput(raw, { engine: "parakeet", exact: false });
+    } catch (err) {
+      // Previews are best-effort: a failed or timed-out decode must never
+      // surface as an error. The final transcription still runs on stop.
+      console.warn(
+        "[transcribe-partial] parakeet preview failed:",
+        err.message,
+      );
+      return "";
+    }
   }
 
   await ensureServer(lang);
