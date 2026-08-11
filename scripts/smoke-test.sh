@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke tests for packaged Vape 'n' Vibe app (unpacked --dir build).
+# Smoke tests for packaged Vaper app (unpacked --dir build).
 # Usage: bash scripts/smoke-test.sh <mac|win>
 set -uo pipefail
 
@@ -47,18 +47,18 @@ kill_app() {
 # --- Platform-specific paths ---
 case "$PLATFORM" in
   mac)
-    APP_DIR="release/mac-arm64/Vape 'n' Vibe.app"
+    APP_DIR="release/mac-arm64/Vaper.app"
     RESOURCES="$APP_DIR/Contents/Resources"
     UNPACKED="$RESOURCES/app.asar.unpacked"
     WHISPER_BIN="$UNPACKED/node_modules/whisper-node/lib/whisper.cpp/main"
-    APP_BINARY="$APP_DIR/Contents/MacOS/Vape 'n' Vibe"
+    APP_BINARY="$APP_DIR/Contents/MacOS/Vaper"
     ;;
   win)
     APP_DIR="release/win-unpacked"
     RESOURCES="$APP_DIR/resources"
     UNPACKED="$RESOURCES/app.asar.unpacked"
     WHISPER_BIN="$UNPACKED/node_modules/whisper-node/lib/whisper.cpp/main.exe"
-    APP_BINARY="$APP_DIR/Vape 'n' Vibe.exe"
+    APP_BINARY="$APP_DIR/Vaper.exe"
     ;;
   *)
     echo "Usage: $0 <mac|win>"
