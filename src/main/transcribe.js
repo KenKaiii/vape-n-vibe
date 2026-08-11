@@ -2,6 +2,7 @@ const fs = require("node:fs/promises");
 const defaults = require("../config/defaults");
 const store = require("./store");
 const { ensureServer, getServerUrl } = require("./whisper-server");
+const { cancelIdleStop, scheduleIdleStop } = require("./engine-idle");
 
 /**
  * Resolve the model that should actually handle a transcription.
@@ -380,6 +381,15 @@ function buildWhisperForm(wavData, { promptWords = [] } = {}) {
  *   once.
  */
 async function transcribe(wavPath, lang, { rawWav, analysis } = {}) {
+  cancelIdleStop();
+  try {
+    return await transcribeInner(wavPath, lang, { rawWav, analysis });
+  } finally {
+    scheduleIdleStop();
+  }
+}
+
+async function transcribeInner(wavPath, lang, { rawWav, analysis } = {}) {
   // --- Pre-transcription audio validation ---
   // The pipeline analyzes the buffer once and passes the result through;
   // legacy/standalone callers still get the original behaviour.
@@ -717,6 +727,15 @@ function cancelActivePartial() {
  * since partials are ephemeral display-only).
  */
 async function transcribePartial(wavBuffer, lang) {
+  cancelIdleStop();
+  try {
+    return await transcribePartialInner(wavBuffer, lang);
+  } finally {
+    scheduleIdleStop();
+  }
+}
+
+async function transcribePartialInner(wavBuffer, lang) {
   const wavData =
     wavBuffer instanceof Uint8Array
       ? wavBuffer

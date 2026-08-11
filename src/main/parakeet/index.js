@@ -224,6 +224,7 @@ async function ensureParakeet() {
  * Stop the worker process — frees the recognizer's ~700MB immediately.
  */
 function stopParakeet() {
+  require("../engine-idle").cancelIdleStop();
   if (!worker) return;
 
   console.log("[parakeet] Stopping worker...");

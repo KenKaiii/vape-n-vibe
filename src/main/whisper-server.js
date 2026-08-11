@@ -239,6 +239,7 @@ async function startServer(lang) {
  * Stop the whisper server process.
  */
 function stopServer() {
+  require("./engine-idle").cancelIdleStop();
   if (!serverProcess) return;
 
   console.log("[whisper-server] Stopping server...");

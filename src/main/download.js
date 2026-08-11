@@ -151,17 +151,25 @@ async function downloadModels(win, modelKey) {
 /** Start the engine matching a model's type (best-effort, non-blocking). */
 function startEngineForModel(modelKey) {
   const store = require("./store");
+  const { scheduleIdleStop } = require("./engine-idle");
   const model = defaults.getModel(modelKey);
   if (model.engine === "whisper") {
     const { startServer } = require("./whisper-server");
-    startServer(store.get("language")).catch((err) => {
-      console.error("[download] Whisper server failed to start:", err.message);
-    });
+    startServer(store.get("language"))
+      .then(scheduleIdleStop)
+      .catch((err) => {
+        console.error(
+          "[download] Whisper server failed to start:",
+          err.message,
+        );
+      });
   } else if (model.engine === "parakeet") {
     const { ensureParakeet } = require("./parakeet");
-    ensureParakeet().catch((err) => {
-      console.error("[download] Parakeet failed to start:", err.message);
-    });
+    ensureParakeet()
+      .then(scheduleIdleStop)
+      .catch((err) => {
+        console.error("[download] Parakeet failed to start:", err.message);
+      });
   }
 }
 
