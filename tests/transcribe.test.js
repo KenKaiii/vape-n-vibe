@@ -63,6 +63,38 @@ describe("parseOutput", () => {
     expect(parseOutput("okay.")).toBe("");
   });
 
+  it("strips filler words from anywhere in a final transcript", () => {
+    expect(parseOutput("So um, I think we should deploy.")).toBe(
+      "So I think we should deploy.",
+    );
+    expect(parseOutput("Uh yeah, that works.")).toBe("yeah, that works.");
+    expect(parseOutput("So, um, I mean, uh, lets go.")).toBe(
+      "So, I mean, lets go.",
+    );
+    expect(parseOutput("Hmm, I think so.")).toBe("I think so.");
+  });
+
+  it("does not strip filler-like substrings inside real words", () => {
+    expect(parseOutput("Umbrella is not a filler word.")).toBe(
+      "Umbrella is not a filler word.",
+    );
+    expect(
+      parseOutput("I said the word yummy and uhm nothing else really"),
+    ).toBe("I said the word yummy and nothing else really");
+  });
+
+  it("does not strip filler words from partial (live preview) text", () => {
+    expect(parseOutput("So um I think", { exact: false })).toBe(
+      "So um I think",
+    );
+  });
+
+  it("strips filler words from parakeet output too", () => {
+    expect(
+      parseOutput("So um I think we should deploy", { engine: "parakeet" }),
+    ).toBe("So I think we should deploy");
+  });
+
   it("filters structural hallucinations (punctuation-only)", () => {
     expect(parseOutput("...")).toBe("");
     expect(parseOutput("!!!")).toBe("");

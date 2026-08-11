@@ -568,6 +568,28 @@ const TRAILING_HALLUCINATIONS = [
 ];
 
 /**
+ * Filler words to strip from anywhere in a transcript — "um", "uh" and
+ * their variants carry no content and both engines transcribe them
+ * verbatim when genuinely spoken (unlike the sentence-level hallucination
+ * phrases above, these aren't fabrications, so this runs regardless of
+ * engine or exact/partial mode).
+ */
+const FILLER_WORDS_RE = /\s*\b(?:umm?|uhh?|uhm|erm?|hmm?)\b[,.!?]?(?=\s|$)/gi;
+
+/**
+ * Remove filler words ("um", "uh", …) from anywhere in the text and
+ * collapse the whitespace/punctuation left behind, e.g.
+ * "so, um, I think" → "so, I think".
+ */
+function stripFillerWords(text) {
+  return text
+    .replace(FILLER_WORDS_RE, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.!?])/g, "$1")
+    .trim();
+}
+
+/**
  * Detect repetitive loops — Whisper sometimes gets stuck repeating
  * the same word/phrase.  If any single word accounts for ≥60% of all
  * words (and there are at least 4 words), treat it as a hallucination.
@@ -619,10 +641,11 @@ function stripTrailingHallucinations(text) {
  * @param {object} [options]
  * @param {boolean} [options.exact=true] - When true (full transcription),
  *   reject the entire output if it exactly matches a known hallucination
- *   phrase ("thank you", "okay", "yeah", "so", …).  When false (partial
- *   transcription, used for live preview), skip that exact-match check
- *   so legitimate single-word partial utterances like "okay" or "so"
- *   survive.  Structural filtering, repetitive-loop detection, and
+ *   phrase ("thank you", "okay", "yeah", "so", …) and strip filler words
+ *   ("um", "uh", …) from anywhere in the text.  When false (partial
+ *   transcription, used for live preview), skip both of those so
+ *   legitimate single-word partial utterances like "okay", "so", or
+ *   "hmm" survive.  Structural filtering, repetitive-loop detection, and
  *   trailing-phrase stripping always run.
  * @param {string} [options.engine="whisper"] - Producing engine.  For
  *   "parakeet" the whisper-specific exact-match set and trailing-phrase
@@ -642,6 +665,15 @@ function parseOutput(stdout, { exact = true, engine = "whisper" } = {}) {
     .replace(/\[.*?\]/g, "") // strip bracket tokens like [BLANK_AUDIO]
     .replace(/\(.*?\)/g, "") // strip paren tokens like (music)
     .trim();
+
+  // 0. Filler words ("um", "uh", …) — final transcriptions only, both
+  //    engines.  Skipped for partials (exact:false): a lone "hmm"/"um"
+  //    is a plausible in-progress utterance worth showing in the live
+  //    preview, and it'll be stripped from the final text once the
+  //    sentence completes.
+  if (exact) {
+    text = stripFillerWords(text);
+  }
 
   // 1. Structural patterns (brackets-only, punctuation-only) — always.
   if (!text || HALLUCINATION_STRUCTURAL_RE.test(text)) {
