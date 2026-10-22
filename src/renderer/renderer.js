@@ -912,13 +912,16 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   async function openMic(deviceId) {
-    // Raw mic signal: Chromium's call-oriented processing (echo
-    // cancellation, noise suppression, auto gain) reshapes speech in ways
-    // that hurt recognition, and auto gain ramps up over the first words.
+    // Echo cancellation and noise suppression stay off: Chromium's
+    // call-oriented processing reshapes speech in ways that hurt
+    // recognition. Auto gain stays ON: without it, quiet mics (some
+    // MacBook built-ins peak around -50 dB) fall below
+    // SILENCE_RMS_THRESHOLD and every recording is skipped as silent.
+    // The warm mic window and pre-roll buffer limit the gain ramp-up.
     const audio = {
       echoCancellation: false,
       noiseSuppression: false,
-      autoGainControl: false,
+      autoGainControl: true,
       channelCount: 1,
     };
     if (deviceId) audio.deviceId = deviceId;
